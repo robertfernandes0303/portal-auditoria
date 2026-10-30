@@ -1,0 +1,37 @@
+from playwright.sync_api import sync_playwright
+import sys
+with sync_playwright() as p:
+    b=p.chromium.launch()
+    for tag,vp in (('d',{'width':1360,'height':860}),('m',{'width':390,'height':800})):
+        pg=b.new_page(viewport=vp); errs=[]
+        pg.on('pageerror',lambda e:errs.append(str(e)))
+        pg.goto('http://localhost:8599'); pg.wait_for_timeout(5000)
+        f=pg.frame_locator('iframe'); fr=lambda: pg.frames[-1]
+        f.locator('#lg-user').fill('robert.fernandes@isssl.com.br'); f.locator('#lg-pass').fill(open('/tmp/cred.txt').read().split('Senha:')[1].strip()); f.locator('#lg-pass').press('Enter'); pg.wait_for_timeout(3000)
+        fr().evaluate("location.hash='#nova'"); pg.wait_for_timeout(700)
+        f.locator('#nv-f').click(); f.locator('[data-act=nvmod][data-v=aud]').click(); pg.wait_for_timeout(300)
+        f.locator('#nv-unit').select_option('Juína'); pg.wait_for_timeout(300)
+        pg.screenshot(path=f'f_nova_{tag}.png')
+        f.locator('[data-fa=start]').click(); pg.wait_for_timeout(3500)
+        pg.screenshot(path=f'f_head_{tag}.png')
+        f.locator('[data-fa=begin]').click(); pg.wait_for_timeout(500)
+        f.locator('#fh-resp').fill('Juliana Costa'); f.locator('[data-fa=begin]').click(); pg.wait_for_timeout(800)
+        pg.screenshot(path=f'f_menu_{tag}.png')
+        f.locator('[data-fa=open][data-i="0"]').click(); pg.wait_for_timeout(400)
+        f.locator('#fq-1').fill('40'); f.locator('#fq-9').fill('120'); f.locator('[data-fa=conclude]').click(); pg.wait_for_timeout(400)
+        print(tag,'err1',f.locator('[role=alert]').all_inner_texts()[:1])
+        f.locator('#fq-9').fill('87,5'); f.locator('[data-fa=conclude]').click(); pg.wait_for_timeout(600)
+        f.locator('[data-fa=open][data-i="1"]').click(); pg.wait_for_timeout(400)
+        f.locator('[data-fa=ans][data-n="11"][data-k="0"]').click(); f.locator('[data-fa=ans][data-n="12"][data-k="1"]').click()
+        f.locator('[data-fi=obs][data-n="12"]').fill('sem sinalização'); pg.wait_for_timeout(400)
+        pg.screenshot(path=f'f_sec_{tag}.png')
+        f.locator('[data-fa=conclude]').click(); pg.wait_for_timeout(400)
+        print(tag,'err2',f.locator('[role=alert]').all_inner_texts()[:1][0][:90])
+        pg.wait_for_timeout(2500)
+        f.locator('[data-fa=menu]').last.click(); pg.wait_for_timeout(500)
+        f.locator('[data-fa=send][data-forced="1"]').click(); pg.wait_for_timeout(500)
+        pg.screenshot(path=f'f_review_{tag}.png')
+        f.locator('[data-fa=confirm]').click(); pg.wait_for_timeout(3500)
+        pg.screenshot(path=f'f_done_{tag}.png')
+        print(tag,errs,f.locator('.okic').count(), f.locator('.list .li b').all_inner_texts()[:5])
+    b.close()

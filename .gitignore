@@ -1,0 +1,13 @@
+data/
+__pycache__/
+.streamlit/secrets.toml
+*.pyc
+forms/*/dados_locais/
+dados_teste/
+tests_e2e/__pycache__/
+.pytest_cache/
+evidencias_locais/
+*.db
+*.db-wal
+*.db-shm
+portal_config.json
