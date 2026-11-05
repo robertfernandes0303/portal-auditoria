@@ -1001,7 +1001,7 @@ function route(){return (location.hash||'#').slice(1)}
 function render(){
   var root=document.getElementById('root'), h=route();
   if(HOSTED&&!BOOT){root.innerHTML='<div class="login" style="place-items:center;display:grid"><p class="note">Carregando…</p></div>';return}
-  if(!S.user){root.innerHTML=real(viewLogin());return}
+  if(!S.user){root.innerHTML=S.resuming?'<div class="login" style="place-items:center;display:grid"><p class="note" role="status">Entrando…</p></div>':real(viewLogin());return}
   var y0=window.scrollY, newRoute=(S._r!==h); S._r=h;
   var ru=RL(); if(ru.units&&ru.units.length===1)S.f.unit=ru.units[0]; else if(ru.units&&ru.units.indexOf(S.f.unit)<0)S.f.unit='all'; if(S.f.units)S.f.units=S.f.units.filter(inScope);
   var cur,body;
@@ -1021,7 +1021,7 @@ function render(){
   var nq=document.getElementById('q'); if(nq){nq.value=S.q||''; if(keep){nq.focus();nq.setSelectionRange(nq.value.length,nq.value.length)}}
   window.scrollTo(0,newRoute?0:y0);
 }
-window.addEventListener('hashchange',function(){S.q='';render()});
+window.addEventListener('hashchange',function(){S.q='';S.fuopen=false;S.fbopen=false;render()});
 var wasMobile=window.innerWidth<=640;window.addEventListener('resize',function(){var m=window.innerWidth<=640;if(m!==wasMobile){wasMobile=m;render()}});
 function doLogin(){S.lg='login';S.user=ROLES[S.role].user;S.f={unit:'all',mod:'all',per:'all',from:'',to:''};S.q='';location.hash='#inicio';render()}
 document.addEventListener('submit',function(e){e.preventDefault();
@@ -1085,7 +1085,7 @@ document.addEventListener('click',function(e){
     else if(act==='ppdelcancel'){S.ppconf=null;render()}
     else if(act==='ppdel'){var dk=S.pp.id;delete ROLES[dk];delete PERFIL[dk];persist();S.pp={id:null,mode:null,draft:null};S.ppconf=null;S.pemsg='Perfil excluído (simulação).';render()}
     else if(act==='nvmod'){S.nv.mod=a.dataset.v;render()}
-    else if(act==='logout'){if(HOSTED){flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
+    else if(act==='logout'){if(HOSTED){tokDel();flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
     else if(act==='ongretry'){S.ongErr=false;S.ongLoaded=false;DATA_RETRY=0;loadOngoing(true);render()}
     else if(act==='pexp'){S.pexp[a.dataset.u]=!S.pexp[a.dataset.u];var y6=window.scrollY;render();window.scrollTo(0,y6)}
     else if(act==='lgreset'){e.preventDefault();S.lg='reset';render()}
@@ -1096,8 +1096,8 @@ document.addEventListener('click',function(e){
     else if(act==='report'){S.rep=a.dataset.id;var y3=window.scrollY;render();window.scrollTo(0,y3)}
     else if(act==='vmod'){S.vm=a.dataset.v;var y8=window.scrollY;render();window.scrollTo(0,y8)}
     else if(act==='cedit'){S.cf=a.dataset.f;S.q=a.dataset.u==='__consolidado__'?'':a.dataset.u;render();var ce=document.getElementById('conn-edit');if(ce)ce.scrollIntoView({block:'start'})}
-    else if(act==='fu-all'){fuSet(scopeUnits().slice());S.fuopen=true;var yz=window.scrollY;render();window.scrollTo(0,yz)}
-    else if(act==='fu-none'){fuSet([]);S.fuopen=true;var yy=window.scrollY;render();window.scrollTo(0,yy)}
+    else if(act==='fu-all'){fuSet(scopeUnits().slice());S.fuopen=false;var yz=window.scrollY;render();window.scrollTo(0,yz)}
+    else if(act==='fu-none'){fuSet([]);S.fuopen=false;var yy=window.scrollY;render();window.scrollTo(0,yy)}
     else if(act==='pf'){S.pf=a.dataset.v;var y=window.scrollY;render();window.scrollTo(0,y)}
     else if(act==='cflt'){S.cmp.flt=a.dataset.v;var y2=window.scrollY;render();window.scrollTo(0,y2)}
     else if(act==='cmpFrom'){var v=VISITS.filter(function(x){return x.id===a.dataset.id})[0];S.cmp={unit:v.unit,mod:v.mod,a:null,b:v.id,flt:'all'}}
@@ -1168,6 +1168,9 @@ function devPick(){
   if(!REAL||!CFG.flags.dev)return '';
   return '<div class="callout"><b>Modo de teste</b><span>Login Microsoft ainda não configurado neste ambiente. Escolha quem entrar.</span><div class="sel"><label for="lg-dev">Entrar como</label><select id="lg-dev">'+(CFG.devUsers||[]).map(function(u){return '<option value="'+esc(u.mail)+'">'+esc(u.name)+' · '+esc(u.label)+'</option>'}).join('')+'</select></div><button type="button" class="btn sec" data-act="devlogin">Entrar em modo de teste</button></div>'
 }
+function tokGet(){try{return localStorage.getItem('portal_tok')||''}catch(e){return ''}}
+function tokSet(t){try{if(t)localStorage.setItem('portal_tok',t)}catch(e){}}
+function tokDel(){try{localStorage.removeItem('portal_tok')}catch(e){}}
 function applyBoot(b){
   BOOT=b;REAL=true;PWSET=(b.pw_users||[]).map(function(m){return String(m).toLowerCase()});
   VISITS.length=0;ONGOING.length=0;
@@ -1184,9 +1187,12 @@ function applyBoot(b){
   if(b.mode==='app'&&b.me){
     var m=b.me,first=!S.user;
     S.me={user:m.name,mail:m.mail,label:m.label,desc:m.desc,units:m.scope==='all'?null:m.units.slice(),scope:m.scope,screens:m.screens.slice()};
-    S.user=m.name;S.lgerr='';S.lgden='';if(!DATA_AT)setTimeout(function(){loadData(false)},50);
+    S.user=m.name;S.resuming=false;S.lgerr='';S.lgden='';if(!DATA_AT)setTimeout(function(){loadData(false)},50);
     if(first){S.f={unit:'all',mod:'all',per:'all',from:'',to:''};if(!location.hash||location.hash==='#')location.hash='#inicio'}
-  }else{S.user=null;S.me=null;S.ongLoaded=false;S.ongErr=false;ONGOING.length=0;S.lgden=b.mode==='denied'?b.mail:'';location.hash=''}
+  }else{S.user=null;S.me=null;S.ongLoaded=false;S.ongErr=false;ONGOING.length=0;S.lgden=b.mode==='denied'?b.mail:'';location.hash='';
+    var tk=tokGet();
+    if(HOSTED&&tk&&f.password&&!S.resTried&&b.mode!=='denied'){S.resTried=true;S.resuming=true;rpc('pw_resume',{token:tk});setTimeout(function(){if(S.resuming&&!S.user){S.resuming=false;tokDel();render()}},20000)}
+    else if(b.mode==='denied')tokDel()}
 }
 var DATA_AT=0,DATA_BUSY=false,DATA_RETRY=0;
 function loadData(fresh){if(!HOSTED||!S.me||DATA_BUSY)return;DATA_BUSY=true;window.__fresh=!!fresh;rpc('data_load',{fresh:!!fresh},true)}
@@ -1216,6 +1222,8 @@ function onRender(args){
   var r=args.reply;
   if(r&&r.id&&r.id!==LASTREPLY){LASTREPLY=r.id;
     if(INFLIGHT&&INFLIGHT.id===r.id){clearTimeout(INFLIGHT.timer);INFLIGHT=null;setTimeout(pump,0)}
+    if(r.kind==='pw_login'&&r.ok)tokSet(r.token);
+    if(r.kind==='pw_resume'){if(r.ok)tokSet(r.token);else{tokDel();S.resuming=false;render()}}
     if(r.kind==='login'||r.kind==='dev_login'||r.kind==='pw_login'){S.lgerr=r.ok?'':(r.msg||'Não foi possível entrar.')}
     if(r.kind==='save'){S.ctesting=false;if(r.ok){if(S.cdirty!==undefined)S.cdirty=false;S.cmsg=r.msg||'';S.cmsgbad=false}else{S.pemsg=null;S.cmsg=r.msg||'Não foi possível salvar.';S.cmsgbad=true;S.pe={id:null,draft:null};S.pp={id:null,mode:null,draft:null}}}
     if(r.kind==='data_load'){applyData(r);if(r.ok)loadOngoing(!!window.__fresh)}
@@ -1356,6 +1364,10 @@ document.addEventListener('click',function(e){
   if(act==='pcancel'){S.pedit=null;S.pmsg='';render();window.scrollTo(0,y);return}
   if(act==='psave'){if(S.pbusy)return;S.pbusy=true;S.pmsg='';var pl=Object.assign({},S.pedx,S.pedd);rpc('plan_save',pl);render();window.scrollTo(0,y)}
 },true);
+function closeUnits(){S.fuopen=false;var d=document.getElementById('f-units');if(d&&d.open)d.open=false}
+document.addEventListener('pointerdown',function(e){if(!S.fuopen)return;var t=e.target;if(t&&t.closest&&t.closest('#f-units'))return;closeUnits()},true);
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&S.fuopen){closeUnits();var sm=document.querySelector('#f-units > summary');if(sm)sm.focus()}},true);
+window.addEventListener('blur',function(){if(S.fuopen)closeUnits()});
 document.addEventListener('toggle',function(e){var t=e.target;if(!t)return;if(t.id==='f-units')S.fuopen=t.open;else if(t.classList&&t.classList.contains('fbar')&&window.innerWidth<=640)S.fbopen=t.open},true);
 document.addEventListener('input',function(e){var t=e.target;if(t&&t.dataset&&t.dataset.pf&&S.pedd)S.pedd[t.dataset.pf]=t.value});
 document.addEventListener('click',function(e){var a=e.target.closest('[data-va=leave],[data-fa=leave]');if(a&&HOSTED)setTimeout(function(){loadData(true)},1200)});

@@ -56,10 +56,20 @@ def run():
                 ss["pw_mail"] = str(pl["mail"]).strip().lower()
                 ss["pw_fails"] = []
                 ss["ver"] += 1
-                reply = {"kind": "pw_login", "ok": True}
+                from core import sessions
+                reply = {"kind": "pw_login", "ok": True, "token": sessions.emitir(store, ss["pw_mail"], settings.secret)}
             else:
                 ss["pw_fails"] = fails + [time.time()]
                 reply = {"kind": "pw_login", "ok": False, "msg": "E-mail ou senha incorretos."}
+        elif act == "pw_resume" and settings.password_login_enabled():
+            from core import sessions
+            m = sessions.validar(store, pl.get("token"), settings.secret)
+            if m:
+                ss["pw_mail"] = m
+                ss["ver"] += 1
+                reply = {"kind": "pw_resume", "ok": True, "token": sessions.emitir(store, m, settings.secret)}
+            else:
+                reply = {"kind": "pw_resume", "ok": False}
         elif act == "logout":
             if settings.auth_configured():
                 st.logout()
