@@ -11,3 +11,4 @@ evidencias_locais/
 *.db-wal
 *.db-shm
 portal_config.json
+tests_e2e/*.png

@@ -40,7 +40,7 @@ def _aud(ctx, out):
     total = sum(1 for s in lg.SECOES if s["tipo"] != "quantidade" for _ in s["itens"])
     for unidade in (ctx.unit_names if ctx.is_global else ctx.allowed):
         try:
-            b = mod.be.carregar_rascunho(unidade)
+            b = (getattr(mod.be, "carregar_rascunho_rapido", None) or mod.be.carregar_rascunho)(unidade)
         except Exception:
             continue
         if not isinstance(b, dict):

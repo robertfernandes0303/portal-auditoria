@@ -535,7 +535,9 @@ function inPeriod(v){var f=S.f,p=f.per,d=v.date;
   if(p==='custom')return (!f.from||d>=f.from)&&(!f.to||d<=f.to);
   return true}
 function perLabel(){var f=S.f;return f.per==='30'?'últimos 30 dias':f.per==='90'?'últimos 90 dias':f.per==='mes'?'mês atual':f.per==='custom'?(f.from?fd(f.from):'início')+' a '+(f.to?fd(f.to):'hoje'):'todo o período'}
-function scopedVisits(){return VISITS.filter(function(v){return inScope(v.unit)&&unitOK(v.unit)&&inPeriod(v)})}
+function recordVisits(){return VISITS.filter(function(v){return inScope(v.unit)&&unitOK(v.unit)&&inPeriod(v)})}
+/* só o que é medido: visitas de escopo (hospital/UPA em licitação) ficam de fora de cálculos, rankings, evolução e plano de ação */
+function scopedVisits(){return recordVisits().filter(function(v){return !(MODS[v.mod]&&MODS[v.mod].nm)})}
 function filtered(){var f=S.f;return scopedVisits().filter(function(v){return unitOK(v.unit)&&(f.mod==='all'||v.mod===f.mod)})}
 function latest(vs){var m={};vs.forEach(function(v){var k=v.unit+'|'+v.mod;if(!m[k]||m[k].date<v.date)m[k]=v});return Object.keys(m).map(function(k){return m[k]})}
 function agg(vs){var c=0,n=0;vs.forEach(function(v){v.items.forEach(function(i){if(i.s==='C'){c++;n++}else if(i.s==='NC')n++})});return n?c/n:null}
@@ -886,17 +888,19 @@ function viewHist(){
 function histCombos(){var m={};scopedVisits().forEach(function(v){var k=v.unit+'|'+v.mod;(m[k]=m[k]||[]).push(v)});return Object.keys(m).map(function(k){return {unit:k.split('|')[0],mod:k.split('|')[1],vs:m[k].sort(function(a,b){return a.date<b.date?-1:1})}})}
 function viewVisitas(){
   var q=(S.q||'').toLowerCase();
-  var mw=modsWithData(); if(mw.indexOf(S.vm)<0)S.vm='all';
-  var vs=scopedVisits().filter(function(v){return (S.vm==='all'||v.mod===S.vm)&&(!q||(v.unit+' '+MODS[v.mod].name).toLowerCase().indexOf(q)>-1)}).sort(function(a,b){return a.date<b.date?1:-1});
+  var mw=['v03','upa','enf','aud'].filter(function(m){return recordVisits().some(function(v){return v.mod===m})}); if(mw.indexOf(S.vm)<0)S.vm='all';
+  var vs=recordVisits().filter(function(v){return (S.vm==='all'||v.mod===S.vm)&&(!q||(v.unit+' '+MODS[v.mod].name).toLowerCase().indexOf(q)>-1)}).sort(function(a,b){return a.date<b.date?1:-1});
   var seg=mw.length>1?'<div class="seg" role="group" aria-label="Formulário">'+[['all','Todos']].concat(mw.map(function(m){return [m,MODS[m].tag||MODS[m].name]})).map(function(f){return '<button data-act="vmod" data-v="'+f[0]+'" aria-pressed="'+(S.vm===f[0])+'">'+f[1]+'</button>'}).join('')+'</div>':'';
-  var rows=vs.map(function(v){var p=vScore(v),nc=v.items.filter(function(i){return i.s==='NC'}).length;
-    return '<tr class="click" tabindex="0" data-go="visita-'+v.id+'"><td data-l="Unidade"><b>'+esc(v.unit)+'</b></td><td data-l="Data" class="num">'+fd(v.date)+'</td><td data-l="Módulo">'+MODS[v.mod].name+'</td><td data-l="Conformidade" class="num"><b>'+fmt(p)+'</b></td><td data-l="Situação">'+pill(p)+'</td><td data-l="Não conformes" class="num">'+nc+'</td></tr>'}).join('');
+  var rows=vs.map(function(v){var p=vScore(v),nc=v.items.filter(function(i){return i.s==='NC'}).length,nm=MODS[v.mod].nm;
+    return '<tr class="click" tabindex="0" data-go="visita-'+v.id+'"><td data-l="Unidade"><b>'+esc(v.unit)+'</b></td><td data-l="Data" class="num">'+fd(v.date)+'</td><td data-l="Módulo">'+MODS[v.mod].name+'</td>'+(nm?'<td data-l="Conformidade" class="num">–</td><td data-l="Situação"><span class="pill info plain">Visita de escopo</span></td><td data-l="Não conformes" class="num">–</td>':'<td data-l="Conformidade" class="num"><b>'+fmt(p)+'</b></td><td data-l="Situação">'+pill(p)+'</td><td data-l="Não conformes" class="num">'+nc+'</td>')+'</tr>'}).join('');
   return '<div class="head"><div><h1>Visitas realizadas</h1><p>Toque em uma visita para ver itens não conformes, evidências e plano de ação.</p></div>'+searchBox('Buscar unidade ou formulário')+'</div>'+seg+'<section class="card"><div style="overflow-x:auto"><table class="tbl rt cmpt"><thead><tr><th>Unidade</th><th>Data</th><th>Módulo</th><th>Conformidade</th><th>Situação</th><th>Não conformes</th></tr></thead><tbody>'+(rows||'<tr><td colspan="6">Nenhuma visita encontrada.</td></tr>')+'</tbody></table></div></section>'
 }
 
 function viewVisita(id){
   var v=VISITS.filter(function(x){return x.id===id&&inScope(x.unit)})[0];
   if(!v)return '<div class="empty">Visita não encontrada para o seu perfil.</div>';
+  if(MODS[v.mod].nm){var itn=v.items.map(function(it){return '<tr><td data-l="Item"><b>'+esc(it.name)+'</b><span class="sm">'+esc(it.gn)+'</span></td><td data-l="Situação">'+({C:'Conforme',NC:'Não conforme',NA:'Não se aplica'}[it.s]||esc(it.s))+'</td></tr>'}).join('');
+    return '<div class="head"><div><a href="#visitas" class="back">← Voltar às visitas</a><h1 style="margin-top:6px">'+esc(v.unit)+'</h1><p>'+MODS[v.mod].name+' · '+fd(v.date)+'</p></div></div><section class="card"><h2>Visita de escopo</h2><p class="sub">Registrada para conhecer a unidade e tirar dúvidas. Não entra em cálculos de conformidade, rankings nem plano de ação.</p><div style="overflow-x:auto"><table class="tbl rt cmpt"><thead><tr><th>Item</th><th>Situação</th></tr></thead><tbody>'+(itn||'<tr><td colspan="2">Sem itens registrados.</td></tr>')+'</tbody></table></div></section>'}
   var p=vScore(v), plans=plansFor(VISITS.filter(function(x){return inScope(x.unit)})), ncs=v.items.filter(function(i){return i.s==='NC'});
   var groups=MODS[v.mod].groups.map(function(g,gi){return barRow(g[0],'',score(v.items.filter(function(i){return i.g===gi})))}).join('');
   var rows=ncs.map(function(it){
@@ -1118,7 +1122,7 @@ function devPick(){
 function applyBoot(b){
   BOOT=b;REAL=true;PWSET=(b.pw_users||[]).map(function(m){return String(m).toLowerCase()});
   VISITS.length=0;ONGOING.length=0;
-  (b.forms||[]).forEach(function(x){if(MODS[x.key]){MODS[x.key].inapp=!!x.ready;MODS[x.key].kind=x.kind||'q';MODS[x.key].variant=x.variant||'';MODS[x.key].free=!!x.free;MODS[x.key].cm=x.conn_mode||'por_unidade'}});
+  (b.forms||[]).forEach(function(x){if(MODS[x.key]){MODS[x.key].inapp=!!x.ready;MODS[x.key].kind=x.kind||'q';MODS[x.key].variant=x.variant||'';MODS[x.key].free=!!x.free;MODS[x.key].nm=x.medido===false;MODS[x.key].cm=x.conn_mode||'por_unidade'}});
   var f=b.flags||{};CFG.flags=f;CFG.devUsers=b.devUsers||[];CFG.forms=b.forms||[];
   Object.keys(ROLES).forEach(function(k){delete ROLES[k]});Object.keys(PERFIL).forEach(function(k){delete PERFIL[k]});
   Object.keys(b.profiles).forEach(function(k){var p=b.profiles[k];ROLES[k]={scope:p.scope,builtin:!!p.builtin,label:p.label,desc:p.desc||'',user:'Usuário '+p.label,units:p.scope==='all'?null:[]};PERFIL[k]=p.screens.slice()});
@@ -1136,13 +1140,16 @@ function applyBoot(b){
   }else{S.user=null;S.me=null;S.lgden=b.mode==='denied'?b.mail:'';location.hash=''}
 }
 var DATA_AT=0,DATA_BUSY=false,DATA_RETRY=0;
-function loadData(fresh){if(!HOSTED||!S.me||DATA_BUSY)return;DATA_BUSY=true;rpc('data_load',{fresh:!!fresh},true)}
+function loadData(fresh){if(!HOSTED||!S.me||DATA_BUSY)return;DATA_BUSY=true;window.__fresh=!!fresh;rpc('data_load',{fresh:!!fresh},true)}
+function loadOngoing(fresh){if(!HOSTED||!S.me)return;rpc('ongoing_load',{fresh:!!fresh},true)}
+function applyOngoing(r){
+  if(!r.ok)return;
+  ONGOING.length=0;(r.ongoing||[]).forEach(function(o){if(MODS[o.form])ONGOING.push({mod:o.form,unit:o.unit,since:o.atualizado_em,pct:o.pct,codigo:o.codigo,resp:o.resp,feitos:o.feitos,total:o.total})});
+  if(r.ongoing_err&&(DATA_RETRY||0)<3){DATA_RETRY=(DATA_RETRY||0)+1;setTimeout(function(){loadOngoing(true)},2500+DATA_RETRY*2500)}else if(!r.ongoing_err)DATA_RETRY=0}
 function applyData(r){
   DATA_BUSY=false;DATA_AT=Date.now();S.dataErr=r.ok?'':(r.msg||'Não foi possível ler as planilhas.');S.dataProb=r.problems||[];
   if(!r.ok)return;
   Object.keys(r.groups||{}).forEach(function(k){if(MODS[k])MODS[k].groups=r.groups[k]});
-  ONGOING.length=0;(r.ongoing||[]).forEach(function(o){if(MODS[o.form])ONGOING.push({mod:o.form,unit:o.unit,since:o.atualizado_em,pct:o.pct,codigo:o.codigo,resp:o.resp,feitos:o.feitos,total:o.total})});
-  if(r.ongoing_err&&(DATA_RETRY||0)<3){DATA_RETRY=(DATA_RETRY||0)+1;setTimeout(function(){loadData(true)},2500+DATA_RETRY*2500)}else if(!r.ongoing_err)DATA_RETRY=0;
   PLANS=r.plans||{};PLAN_EDIT=r.plan_edit||[];
   VISITS.length=0;var seen={};
   r.visits.forEach(function(v){VISITS.push({id:v.id,mod:v.mod,unit:v.unit,date:v.date,resp:v.resp,items:v.items})});
@@ -1159,7 +1166,8 @@ function onRender(args){
     if(INFLIGHT&&INFLIGHT.id===r.id){clearTimeout(INFLIGHT.timer);INFLIGHT=null;setTimeout(pump,0)}
     if(r.kind==='login'||r.kind==='dev_login'||r.kind==='pw_login'){S.lgerr=r.ok?'':(r.msg||'Não foi possível entrar.')}
     if(r.kind==='save'){S.ctesting=false;if(r.ok){if(S.cdirty!==undefined)S.cdirty=false;S.cmsg=r.msg||'';S.cmsgbad=false}else{S.pemsg=null;S.cmsg=r.msg||'Não foi possível salvar.';S.cmsgbad=true;S.pe={id:null,draft:null};S.pp={id:null,mode:null,draft:null}}}
-    if(r.kind==='data_load')applyData(r);
+    if(r.kind==='data_load'){applyData(r);if(r.ok)loadOngoing(!!window.__fresh)}
+    if(r.kind==='ongoing_load')applyOngoing(r);
     if(r.kind==='set_password'||r.kind==='remove_password'){if(r.ok){var mm=String(r.mail||'').toLowerCase(),ix=PWSET.indexOf(mm);if(r.kind==='set_password'){if(ix<0)PWSET.push(mm);S.pwmsg='Senha definida'+(S.pwlast?': '+S.pwlast+' (informe à pessoa)':'.')}else{if(ix>-1)PWSET.splice(ix,1);S.pwmsg='Senha removida.'}}else S.pwmsg=r.msg||'Não foi possível.';S.pwlast=''}
     if(r.kind==='plan_save'){S.pbusy=false;if(r.ok){PLANS[r.key]=r.plan;S.pedit=null;S.pmsg=''}else S.pmsg=r.msg||'Não foi possível salvar.'}
     if(r.kind==='form_submit'&&r.ok)setTimeout(function(){loadData(true)},300);

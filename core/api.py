@@ -18,7 +18,7 @@ def build_boot(store, mail, version, flags, mode_hint=None):
     user = store.user_by_mail(mail) if mail else None
     prof = store.data["profiles"]
     boot = {"v": version, "flags": flags, "mail": mail or "",
-            "forms": [{"key": k, "name": f["name"], "ready": bool(f.get("ready")), "kind": f.get("kind", "q"), "variant": f.get("variant", ""), "free": bool(f.get("free")), "conn_mode": f.get("conn_mode", "por_unidade")} for k, f in FORMS.items()]}
+            "forms": [{"key": k, "name": f["name"], "ready": bool(f.get("ready")), "kind": f.get("kind", "q"), "variant": f.get("variant", ""), "free": bool(f.get("free")), "medido": f.get("medido", True), "conn_mode": f.get("conn_mode", "por_unidade")} for k, f in FORMS.items()]}
     if not mail:
         boot["mode"] = "login"
     elif not user or not user.get("active", True):

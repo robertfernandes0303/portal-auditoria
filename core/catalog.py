@@ -29,6 +29,7 @@ DEFAULT_UNITS = [
     "São Lourenço da Serra", "Sumaré - Área Cura", "Sumaré - Macarenko", "Sumaré - Matão",
 ]
 
+# medido=False: visita de escopo de unidade em licitação (hospital/UPA digitados na hora): registrada, mas fora de cálculos, rankings e plano de ação
 # kind: 'conformidade' (Conforme/Não Conforme -> % e meta) | 'levantamento' (OK/Parcial/Não ou fonte)
 FORMS = {
     "aud": {"name": "Auditoria Institucional", "conn_mode": "por_unidade", "tag": "Auditoria", "icon": ":material/fact_check:",
@@ -39,11 +40,11 @@ FORMS = {
             "ready": True, "tabs": {"visitas": "Visitas", "itens": "Itens", "rascunho": "Rascunho"},
             "unit_col": "Hospital", "pct_col": "Percentual de OK", "date_col": "Data da Visita",
             "desc": "Visita técnica de enfermagem: item verificado, previsto e situação, com evidências."},
-    "v03": {"name": "Visita Técnica · Hospital", "kind": "vt", "variant": "v03", "free": True, "conn_mode": "unica", "tag": "Hospital", "icon": ":material/local_hospital:",
+    "v03": {"name": "Visita Técnica · Hospital", "kind": "vt", "variant": "v03", "free": True, "medido": False, "conn_mode": "unica", "tag": "Hospital", "icon": ":material/local_hospital:",
             "ready": True, "tabs": {"visitas": "VT_Visitas", "itens": "VT_Itens", "rascunho": "VT_Rascunho"},
             "unit_col": "Hospital", "pct_col": "Percentual de OK", "date_col": "Data da Visita",
             "desc": "Visita técnica do hospital: estrutura, gestão, urgência, farmácia e segurança."},
-    "upa": {"name": "Visita Técnica · UPA e PAM", "kind": "vt", "variant": "upa", "free": True, "conn_mode": "unica", "tag": "UPA · PAM", "icon": ":material/emergency:",
+    "upa": {"name": "Visita Técnica · UPA e PAM", "kind": "vt", "variant": "upa", "free": True, "medido": False, "conn_mode": "unica", "tag": "UPA · PAM", "icon": ":material/emergency:",
             "ready": True, "tabs": {"visitas": "UPA_Visitas", "itens": "UPA_Itens", "rascunho": "UPA_Rascunho"},
             "unit_col": "Unidade", "pct_col": None, "date_col": "Data da Visita",
             "desc": "Checklist único para UPA e PAM: acolhimento, assistência e apoio diagnóstico."},

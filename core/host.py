@@ -80,23 +80,23 @@ def run():
             except api.Rejected as e:
                 reply = {"kind": act, "ok": False, "msg": str(e)}
         elif act == "data_load":
-            from core import readers
+            from core import readers, plans
             try:
                 if pl.get("fresh"):
                     readers.limpar_cache()
-                from core import andamento, plans
+                reply = {"kind": "data_load", "ok": True, **readers.load(store, mail), **plans.visible(store, mail)}
+            except Exception as e:
+                reply = {"kind": "data_load", "ok": False, "msg": str(e)[:160]}
+        elif act == "ongoing_load":          # separado: o Painel não espera a leitura dos rascunhos
+            from core import andamento
+            try:
                 if pl.get("fresh"):
                     andamento.limpar_cache()
                 _err = []
-                from concurrent.futures import ThreadPoolExecutor
-                with ThreadPoolExecutor(max_workers=2) as _ex:      # painel e rascunhos lidos ao mesmo tempo
-                    _fa = _ex.submit(andamento.listar, store, mail, _err)
-                    _fb = _ex.submit(readers.load, store, mail)
-                    _on, _dados = _fa.result(), _fb.result()
-                reply = {"kind": "data_load", "ok": True, **_dados,
-                         "ongoing": _on, "ongoing_err": bool(_err), **plans.visible(store, mail)}
+                _on = andamento.listar(store, mail, _err)
+                reply = {"kind": "ongoing_load", "ok": True, "ongoing": _on, "ongoing_err": bool(_err)}
             except Exception as e:
-                reply = {"kind": "data_load", "ok": False, "msg": str(e)[:160]}
+                reply = {"kind": "ongoing_load", "ok": False, "msg": str(e)[:160]}
         elif act in ("set_password", "remove_password"):
             who = store.user_by_mail(mail)
             alvo = str(pl.get("mail") or "").strip().lower()

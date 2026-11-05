@@ -507,6 +507,40 @@ def salvar_rascunho(unidade: str, dados: dict):
         pass
 
 
+def carregar_rascunho_rapido(unidade: str):
+    """Igual a carregar_rascunho, mas com UMA leitura por unidade (aba Rascunho inteira). Usado pela lista de visitas em
+    andamento, que lê todas as unidades de uma vez e não pode gastar a cota do Google."""
+    try:
+        mapping = _carregar_mapeamento()
+    except FileNotFoundError:
+        return carregar_rascunho(unidade)
+    if not _credenciais_disponiveis(mapping):
+        return carregar_rascunho(unidade)
+    try:
+        cliente = _obter_cliente_gspread()
+        sheet_id = _resolver_sheet_id_unidade(cliente, unidade, mapping)
+    except Exception:
+        return ERRO_VERIFICACAO_RASCUNHO
+    if not sheet_id:
+        return None
+    try:
+        r = cliente.http_client.values_batch_get(sheet_id, ["'%s'" % ABA_RASCUNHO])
+        linhas = (r.get("valueRanges") or [{}])[0].get("values", [])
+    except Exception as e:
+        if getattr(getattr(e, "response", None), "status_code", 0) == 400:
+            return None                      # a aba Rascunho ainda não existe: confirmadamente sem rascunho
+        return ERRO_VERIFICACAO_RASCUNHO
+    for linha in linhas[1:]:
+        if linha and linha[0] == unidade:
+            if len(linha) < 3:
+                return None
+            try:
+                return {"atualizado_em": linha[1], "dados": json.loads(linha[2])}
+            except Exception:
+                return None
+    return None
+
+
 def carregar_rascunho(unidade: str):
     """Retorna:
       - {"atualizado_em": str, "dados": dict}  se existe rascunho salvo
