@@ -18,7 +18,7 @@ from core.catalog import FORMS
 from core.forms_api import Ctx
 
 PARCIAL_COMO = "NC"      # Parcial conta como não conforme (entra no plano de ação). Mude para "NA" para ignorar.
-TTL = 60                 # segundos de cache por planilha
+TTL = 180                # segundos de cache por planilha (a cota do Google é de ~60 leituras/min)
 
 _CACHE = {}
 
@@ -28,7 +28,12 @@ def _cached(key, fn):
     hit = _CACHE.get(key)
     if hit and t - hit[0] < TTL:
         return hit[1]
-    val = fn()
+    try:
+        val = fn()
+    except Exception:
+        if hit:                         # o Google falhou agora: mostra o último dado bom em vez de esvaziar o painel
+            return hit[1]
+        raise
     _CACHE[key] = (t, val)
     return val
 
@@ -107,7 +112,15 @@ def _ler_google(form, ref):
             raise
 
     def go():
-        pl = drive.open_spreadsheet(ref)
+        sid = drive.extract_id(ref)
+        try:        # uma única chamada traz as duas abas (antes eram ~5 leituras por planilha)
+            r = drive.client().http_client.values_batch_get(sid, ["'%s'" % tabs["visitas"], "'%s'" % tabs["itens"]])
+            vr = r.get("valueRanges", [])
+            return (_df(vr[0].get("values", []), form, tabs["visitas"]), _df(vr[1].get("values", []), form, tabs["itens"]))
+        except Exception as e:
+            if getattr(getattr(e, "response", None), "status_code", 0) != 400:
+                raise                   # 429/403/rede: não esconde o problema
+        pl = drive.open_spreadsheet(ref)    # aba inexistente (400): caminho antigo, que trata "sem aba" como vazio
         return aba(pl, tabs["visitas"]), aba(pl, tabs["itens"])
     return _cached((form, ref), go)
 

@@ -12,6 +12,8 @@ CSS = """
 <style>
 header[data-testid="stHeader"],footer,[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"],#MainMenu{display:none!important}
 [data-testid="stAppViewContainer"],[data-testid="stMain"],.main,.block-container{padding:0!important;margin:0!important;max-width:none!important}
+[data-stale="true"],[data-stale="true"] *,.stale-element,[data-testid="stElementContainer"],[data-testid="stCustomComponentV1"],[data-testid="stMain"] *{opacity:1!important;transition:none!important;filter:none!important}
+[data-testid="stStatusWidget"],[data-testid="stAppDeployButton"]{display:none!important}
 iframe[title="portal.portal"],iframe[title*="portal"]{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;border:0;z-index:999990;background:#fff}
 </style>"""
 

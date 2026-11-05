@@ -6,7 +6,7 @@ import time
 from core.forms_api import Ctx, PKG
 from core.catalog import FORMS
 
-TTL = 20
+TTL = 60
 _CACHE = {}
 
 

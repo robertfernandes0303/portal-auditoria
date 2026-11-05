@@ -23,8 +23,14 @@ def extract_id(ref):
 @st.cache_resource(show_spinner=False)
 def _client():
     import gspread
+    from core import gquota
+    gquota.aplicar()
     info = dict(st.secrets["gcp_service_account"])
     return gspread.service_account_from_dict(info)
+
+
+def client():
+    return _client()
 
 
 def open_spreadsheet(ref):
