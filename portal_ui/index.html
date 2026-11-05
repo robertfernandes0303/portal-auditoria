@@ -361,6 +361,8 @@ a.who:hover{background:rgba(255,255,255,.14)}
 .head.sub h1{font-size:1.15rem}
 .cnr{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr) minmax(0,1.4fr);gap:12px;align-items:end;padding:12px 0;border-top:1px solid var(--line)}
 .cnr:first-child{border-top:0}
+.cnb{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+@media(max-width:760px){.cnr{grid-template-columns:1fr}}
 .cnr .un{display:flex;flex-direction:column;gap:6px;align-self:center}
 .cnr input{width:100%;min-height:44px}
 @media (max-width:760px){.cnr{grid-template-columns:minmax(0,1fr)}}
@@ -995,6 +997,13 @@ document.addEventListener('click',function(e){
     else if(act==='cform'){S.cf=a.dataset.v;render()}
     else if(act==='uadd'){addUnit()}
     else if(act==='csave'){saveConn()}
+    else if(act==='cdisc'){S.disc=null;S.cdiscBusy=false;render()}
+    else if(act==='cauto'){autoFill();render()}
+    else if(act==='crm'){S.crm=a.dataset.k;render()}
+    else if(act==='crm0'){S.crm=null;render()}
+    else if(act==='crm2'){delete CFG.conn[a.dataset.k];S.crm=null;S.cdirty=true;S.cmsg='Conexão removida. Clique em Salvar conexões para confirmar.';S.cmsgbad=false;render()}
+    else if(act==='ctest1'){var kk=a.dataset.k,one={};if(CFG.conn[kk])one[kk]=CFG.conn[kk];S.crow=S.crow||{};S.crow[kk]='Testando…';rpc('test',{conn:one,one:kk});render()}
+    else if(act==='cnew'){var kn=a.dataset.k,cc=CFG.conn[kn]||{};S.crow=S.crow||{};S.crow[kn]='Criando…';rpc('conn_create',{k:kn,title:a.dataset.t,folder:cc.pasta||''});render()}
     else if(act==='ctest'){rpc('test',{conn:connOut()});S.ctesting=true;render()}
     else if(act==='peu'){var uu=USERS.filter(function(x){return x.id===a.dataset.v})[0];S.pe={id:uu.id,draft:{role:uu.role,scope:uu.scope,units:uu.units.slice(),ov:JSON.parse(JSON.stringify(uu.ov))}};S.pesaved=null;S.peconf=null;S.q='';render()}
     else if(act==='peback'){e.preventDefault();S.pe={id:null,draft:null};S.peconf=null;render()}
@@ -1143,7 +1152,9 @@ function onRender(args){
     if(r.kind==='plan_save'){S.pbusy=false;if(r.ok){PLANS[r.key]=r.plan;S.pedit=null;S.pmsg=''}else S.pmsg=r.msg||'Não foi possível salvar.'}
     if(r.kind==='form_submit'&&r.ok)setTimeout(function(){loadData(true)},300);
     if(r.kind&&r.kind.indexOf('form_')===0&&S.fm)fmReply(r);
-    if(r.kind==='test'){S.ctesting=false;S.ctest=r.results||{};}
+    if(r.kind==='test'){S.ctesting=false;S.ctest=Object.assign(S.ctest||{},r.results||{});(S.crow=S.crow||{});Object.keys(S.crow).forEach(function(k){if(S.crow[k]==='Testando…')S.crow[k]=''})}
+    if(r.kind==='conn_discover'){S.cdiscBusy=false;if(r.ok){S.disc={planilhas:r.planilhas||[],pastas:r.pastas||[]};S.cdisc=true}else{S.cdisc=false;S.disc=S.disc||null;S.cdiscBusy=true}}
+    if(r.kind==='conn_create'){S.crow=S.crow||{};if(r.ok){var c2=CFG.conn[r.k]||(CFG.conn[r.k]={planilha:'',pasta:''});c2.planilha=r.url;S.cdirty=true;S.crow[r.k]='Planilha criada e preenchida. Clique em Salvar conexões.';S.disc=null;S.cdiscBusy=false}else S.crow[r.k]=r.msg||'Não foi possível criar.'}
   }
   render();
 }
@@ -1183,13 +1194,28 @@ function viewConn(){
   var fchips='<div class="seg" role="group" aria-label="Formulário" style="margin:0 0 12px">'+forms.map(function(x){return '<button data-act="cform" data-v="'+x.key+'" aria-pressed="'+(f===x.key)+'">'+esc(x.name)+'</button>'}).join('')+'</div>';
   var un=(MODS[f]&&MODS[f].cm==='unica'),rows=[{nome:'__consolidado__',label:un?'Planilha única do formulário':'Consolidado (todas as unidades)',ativo:true}].concat(un?[]:CFG.units).filter(function(u){return u.ativo&&(!q||(u.label||u.nome).toLowerCase().indexOf(q)>-1)}).map(function(u){var c=cst(f,u.nome),k=esc(f+'|'+u.nome),cs=u.nome==='__consolidado__';
     return '<div class="cnr"><div class="un"><b>'+esc(u.label||u.nome)+'</b><span>'+badge(f,u.nome)+'</span></div>'+
-    '<div class="sel"><label>'+(cs?(un?'Planilha do formulário (URL ou ID)':'Planilha consolidada (URL ou ID)'):'Planilha (URL ou ID)')+'</label><input class="cbi" type="text" autocomplete="off" data-bind="c-in" data-k="'+k+'" data-f="planilha" value="'+esc(c.planilha||'')+'" placeholder="Cole o endereço da planilha"></div>'+
-    '<div class="sel"><label>'+(cs?(un?'Pasta de evidências / fotos (URL ou ID)':'Pasta para criar planilhas (opcional)'):'Pasta de evidências (URL ou ID)')+'</label><input class="cbi" type="text" autocomplete="off" data-bind="c-in" data-k="'+k+'" data-f="pasta" value="'+esc(c.pasta||'')+'" placeholder="Cole o endereço da pasta"></div></div>'}).join('')||'<div class="empty">Nenhuma unidade encontrada.</div>';
+    '<div class="sel"><label>'+(cs?(un?'Planilha do formulário (URL ou ID)':'Planilha consolidada (URL ou ID)'):'Planilha (URL ou ID)')+'</label><input class="cbi" type="text" autocomplete="off" data-bind="c-in" data-k="'+k+'" data-f="planilha" list="dl-p" value="'+esc(c.planilha||'')+'" placeholder="Escolha da lista ou cole o endereço"></div>'+
+    '<div class="sel"><label>'+(cs?(un?'Pasta de evidências / fotos (URL ou ID)':'Pasta para criar planilhas (opcional)'):'Pasta de evidências (URL ou ID)')+'</label><input class="cbi" type="text" autocomplete="off" data-bind="c-in" data-k="'+k+'" data-f="pasta" list="dl-f" value="'+esc(c.pasta||'')+'" placeholder="Escolha da lista ou cole o endereço"></div>'+
+    '<div class="cnb"><button type="button" class="btn line" data-act="ctest1" data-k="'+k+'">Testar esta</button>'+((c.planilha||c.pasta)?(S.crm===f+'|'+u.nome?'<span class="note" style="font-weight:700">Remover só a conexão (os dados na planilha não são apagados)?</span><button type="button" class="btn" data-act="crm2" data-k="'+k+'">Sim, remover</button><button type="button" class="btn line" data-act="crm0">Cancelar</button>':'<button type="button" class="btn line" data-act="crm" data-k="'+k+'">Remover conexão</button>'):'')+(!c.planilha&&(S.disc&&S.cdisc!==false)?'<button type="button" class="btn line" data-act="cnew" data-k="'+k+'" data-t="'+esc((MODS[f]&&MODS[f].name||f)+(cs?'':' - '+u.nome))+'">Criar planilha nova</button>':'')+(S.crow&&S.crow[f+'|'+u.nome]?'<span class="note" role="status">'+esc(S.crow[f+'|'+u.nome])+'</span>':'')+'</div></div>'}).join('')||'<div class="empty">Nenhuma unidade encontrada.</div>';
   var banner=sa?'<div class="callout" style="margin:0 0 12px"><b>Antes de salvar</b><span>Compartilhe cada planilha e pasta com <b>'+esc(sa)+'</b> como Editor. O portal só acessa o que for compartilhado.</span></div>':'<div class="callout" style="margin:0 0 12px"><b>Credenciais do Google não configuradas</b><span>Os endereços são guardados, mas só funcionam depois que a TI cadastrar a conta de serviço do portal.</span></div>';
-  var conn='<section class="card"><h2 style="margin:0 0 4px">Conexões com o Google Drive</h2><p class="note" style="margin:0 0 12px">Cada formulário grava e lê dados na planilha e na pasta da unidade. Aceita a URL completa, um trecho dela ou só o ID.</p>'+banner+fchips+searchBox('Buscar unidade')+'<div style="margin-top:6px">'+rows+'</div>'+
-   '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn" data-act="csave"'+(S.cdirty?'':' disabled style="opacity:.5"')+'>Salvar conexões</button><button class="btn sec" data-act="ctest"'+(S.ctesting?' disabled':'')+'>'+(S.ctesting?'Testando…':'Testar conexões')+'</button></div></section>';
+  var dl=connLists();
+  var conn='<section class="card"><h2 style="margin:0 0 4px">Conexões com o Google Drive</h2><p class="note" style="margin:0 0 12px">Cada formulário grava e lê dados na planilha e na pasta da unidade. Aceita a URL completa, um trecho dela ou só o ID.</p>'+banner+fchips+searchBox('Buscar unidade')+'<div style="margin-top:6px">'+rows+'</div>'+dl+
+   '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn" data-act="csave"'+(S.cdirty?'':' disabled style="opacity:.5"')+'>Salvar conexões</button><button class="btn sec" data-act="cauto">Preencher unidades automaticamente</button><button class="btn sec" data-act="cdisc">Atualizar lista do Drive</button><button class="btn sec" data-act="ctest"'+(S.ctesting?' disabled':'')+'>'+(S.ctesting?'Testando…':'Testar conexões')+'</button></div></section>';
   return '<div class="head sub"><div><h1>Unidades e conexões</h1><p>Cadastre unidades e aponte onde cada formulário guarda seus dados.</p></div></div>'+msg+units+conn
 }
+function connLists(){
+  var d=S.disc;if(!d&&HOSTED&&!S.cdiscBusy&&S.me){S.cdiscBusy=true;setTimeout(function(){rpc('conn_discover',{})},0)}
+  if(!d)return '';
+  return '<datalist id="dl-p">'+d.planilhas.map(function(x){return '<option value="https://docs.google.com/spreadsheets/d/'+x.id+'/edit">'+esc(x.name)+'</option>'}).join('')+'</datalist>'+
+         '<datalist id="dl-f">'+d.pastas.map(function(x){return '<option value="https://drive.google.com/drive/folders/'+x.id+'">'+esc(x.name)+'</option>'}).join('')+'</datalist>'}
+function nrm(t){return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+function autoFill(){
+  var d=S.disc;if(!d){S.cmsg='A lista do Drive ainda não carregou. Aguarde alguns segundos e tente de novo.';S.cmsgbad=true;return}
+  var n=0,vistos={};d.planilhas.forEach(function(x){(vistos[nrm(x.name)]=vistos[nrm(x.name)]||[]).push(x)});
+  CFG.units.forEach(function(u){if(!u.ativo)return;var k='aud|'+u.nome,c=CFG.conn[k]||{};if(c.planilha)return;
+    var m=vistos[nrm('Auditoria_'+u.nome)];if(m&&m.length===1){CFG.conn[k]={planilha:'https://docs.google.com/spreadsheets/d/'+m[0].id+'/edit',pasta:c.pasta||''};n++}});
+  S.cmsg=n?n+' unidade(s) preenchida(s) com a planilha "Auditoria_<unidade>" que já existe no Drive. Confira e clique em Salvar conexões.':'Nenhuma unidade sem planilha encontrou uma planilha "Auditoria_<nome da unidade>" compartilhada com o portal.';
+  S.cmsgbad=!n;if(n)S.cdirty=true}
 function addUnit(){
   var v=document.getElementById('u-new').value.trim();
   if(!v){S.umsg='Informe o nome da unidade.';render();return}
@@ -1209,6 +1235,7 @@ document.addEventListener('input',function(e){
   }
 });
 document.addEventListener('change',function(e){
+  var t=e.target;if(t.dataset&&t.dataset.bind==='c-in'){render();return}
   var t=e.target;if(t.dataset&&t.dataset.bind==='u-act'){
     var u=CFG.units[+t.dataset.i];
     if(!t.checked&&CFG.units.filter(function(x){return x.ativo}).length<2){t.checked=true;S.cmsg='Mantenha ao menos uma unidade ativa.';S.cmsgbad=true;render();return}

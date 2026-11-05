@@ -68,3 +68,38 @@ def read_tab(ref, tab):
     ws = open_spreadsheet(ref).worksheet(tab)
     rows = ws.get_all_records()
     return pd.DataFrame(rows)
+
+
+_DISC = {"t": 0, "v": None}
+
+
+def discover(force=False):
+    """Planilhas e pastas que a conta de serviço enxerga (ou seja, as que foram compartilhadas com ela).
+    Alimenta as listas de escolha em Configurações → conexões. Retorna {'planilhas': [...], 'pastas': [...]}."""
+    import time
+    if not force and _DISC["v"] and time.time() - _DISC["t"] < 60:
+        return _DISC["v"]
+    cli = _client()
+    out = {"planilhas": [], "pastas": []}
+    for kind, mime, dest in (("s", "application/vnd.google-apps.spreadsheet", "planilhas"), ("p", "application/vnd.google-apps.folder", "pastas")):
+        tok = None
+        for _ in range(5):
+            params = {"q": f"mimeType='{mime}' and trashed=false", "fields": "nextPageToken,files(id,name)", "pageSize": 200,
+                      "supportsAllDrives": "true", "includeItemsFromAllDrives": "true", "orderBy": "name"}
+            if tok:
+                params["pageToken"] = tok
+            r = cli.http_client.request("get", "https://www.googleapis.com/drive/v3/files", params=params).json()
+            out[dest] += [{"id": f["id"], "name": f["name"]} for f in r.get("files", [])]
+            tok = r.get("nextPageToken")
+            if not tok:
+                break
+    _DISC.update(t=time.time(), v=out)
+    return out
+
+
+def create_spreadsheet(title, folder_ref=""):
+    """Cria uma planilha vazia (nas abas, cada formulário cria o que precisa ao gravar). Retorna (id, url)."""
+    fid = extract_id(folder_ref) if folder_ref else None
+    sh = _client().create(title, folder_id=fid) if fid else _client().create(title)
+    _DISC["v"] = None
+    return sh.id, f"https://docs.google.com/spreadsheets/d/{sh.id}/edit"

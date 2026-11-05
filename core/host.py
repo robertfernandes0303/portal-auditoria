@@ -120,6 +120,28 @@ def run():
                 reply = {"kind": "plan_save", "ok": True, **plans.save(store, mail, pl)}
             except api.Rejected as e:
                 reply = {"kind": "plan_save", "ok": False, "msg": str(e)}
+        elif act in ("conn_discover", "conn_create"):
+            from core import perms, drive
+            who = store.user_by_mail(mail)
+            if not who or not perms.can(store, who, "conn"):
+                reply = {"kind": act, "ok": False, "msg": "Sem permissão."}
+            elif not settings.google_configured():
+                reply = {"kind": act, "ok": False, "msg": "Credenciais do Google não configuradas."}
+            else:
+                try:
+                    if act == "conn_discover":
+                        reply = {"kind": act, "ok": True, **drive.discover(True)}
+                    else:
+                        titulo = str(pl.get("title") or "").strip()[:100]
+                        if not titulo:
+                            reply = {"kind": act, "ok": False, "msg": "Informe um nome para a planilha."}
+                        else:
+                            sid, url = drive.create_spreadsheet(titulo, str(pl.get("folder") or ""))
+                            store.log(mail, f"Criou a planilha {titulo}")
+                            store.save()
+                            reply = {"kind": act, "ok": True, "k": pl.get("k"), "url": url}
+                except Exception as e:
+                    reply = {"kind": act, "ok": False, "k": pl.get("k"), "msg": "Não foi possível: " + str(e)[:140]}
         elif act == "test":
             try:
                 reply = {"kind": "test", "results": api.run_tests(store, mail, pl.get("conn"))}
