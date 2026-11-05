@@ -792,9 +792,39 @@ function viewPainel(){
   return '<div class="head"><div><h1>'+(S.f.unit!=='all'?'Indicadores · '+esc(S.f.unit):'Painel de indicadores')+'</h1><p>'+(uonly?'Conformidade, não conformidades e planos de ação da sua unidade, a partir da última visita de cada módulo.':S.f.unit!=='all'?'Indicadores da unidade selecionada, a partir da última visita de cada módulo.':'Visão global: conformidade, não conformidades e planos de ação a partir da última visita de cada unidade.')+'</p></div>'+filterBar()+'</div>'+kp+
   '<div class="grid'+(tr?' g21':'')+'"><section class="card"><h2>'+title+'</h2><p class="sub">'+sub+'</p>'+(byWhat||'<div class="empty">Sem dados para o filtro.</div>')+legend()+'</section>'+
   (tr?'<section class="card"><h2>Evolução por mês</h2><p class="sub">Conformidade de todas as visitas do mês.</p>'+tr+'</section>':'')+'</div>'+
-  (S.f.unit!=='all'?'':'<section class="card"><h2>Ranking de unidades</h2><p class="sub">Da maior para a menor conformidade.</p>'+rk+legend()+'</section>'+matrix)
+  (S.f.unit!=='all'?'':'<section class="card"><h2>Ranking de unidades</h2><p class="sub">Da maior para a menor conformidade.</p>'+rk+legend()+'</section>'+matrix)+drillCard()
 }
 
+/* ===== Abertura por seção (estrutura do relatório gerencial) ===== */
+function secoes(items){
+  var m={},ord=[];
+  items.forEach(function(i){var k=i.gn;if(!m[k]){m[k]={gn:k,c:0,nc:0,na:0,ncs:[]};ord.push(k)}
+    if(i.s==='C')m[k].c++;else if(i.s==='NC'){m[k].nc++;m[k].ncs.push(i)}else m[k].na++});
+  return ord.map(function(k){var x=m[k];x.ap=x.c+x.nc;x.p=x.ap?x.c/x.ap:null;return x});
+}
+function secRow(x){
+  return '<div class="row"><div class="lb">'+esc(x.gn)+'<small>'+x.c+' conf. · '+x.nc+' não conf. · '+x.na+' N/A</small></div>'+(x.p==null?'<div class="track"></div><div class="v num">N/A</div>':bar(x.p)+'<div class="v num">'+fmt(x.p)+'</div>')+'</div>';
+}
+function drillCard(){
+  var lt=latest(scopedVisits()).filter(function(v){return v.items&&v.items.length});
+  if(!lt.length)return '';
+  var us={};lt.forEach(function(v){(us[v.unit]=us[v.unit]||[]).push(v)});
+  var names=Object.keys(us).sort(function(a,b){return agg(us[b])-agg(us[a])});
+  var html=names.map(function(u,ui){
+    var vs=us[u].sort(function(a,b){return a.mod<b.mod?-1:1});
+    var inner=vs.map(function(v){
+      var sc=secoes(v.items).filter(function(x){return x.ap>0}).sort(function(a,b){return a.p-b.p});
+      var nc=v.items.filter(function(i){return i.s==='NC'}).length;
+      var id='dr-'+ui+'-'+v.mod;
+      return '<details class="vtd drl" id="'+esc(id)+'"'+(S.dopen&&S.dopen[id]?' open':'')+'><summary><b>'+esc(MODS[v.mod].name)+'</b><span class="note"> · visita de '+fd(v.date)+' · '+nc+' não conformes</span><span class="num" style="float:right;font-weight:800">'+fmt(vScore(v))+'</span></summary>'+
+        '<div style="padding:8px 0">'+(sc.map(secRow).join('')||'<div class="empty">Sem itens aplicáveis.</div>')+'</div><a class="btn line" href="#visita-'+esc(v.id)+'" style="margin-bottom:8px">Abrir relatório da visita</a></details>';
+    }).join('');
+    var idu='dru-'+ui;
+    return '<details class="vtd drl" id="'+esc(idu)+'"'+(S.dopen&&S.dopen[idu]?' open':'')+'><summary><b>'+esc(u)+'</b><span class="note"> · '+vs.length+' formulário(s)</span><span class="num" style="float:right;font-weight:800">'+fmt(agg(us[u]))+'</span></summary><div style="padding:6px 0 6px 12px">'+inner+'</div></details>';
+  }).join('');
+  return '<section class="card"><h2>Abertura por unidade e formulário</h2><p class="sub">Toque na unidade para ver cada formulário e, dentro dele, a conformidade por grupo (da menor para a maior). Última visita de cada formulário; visitas de escopo ficam de fora.</p>'+html+'</section>';
+}
+document.addEventListener('toggle',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('drl')){S.dopen=S.dopen||{};S.dopen[t.id]=t.open}},true);
 function matrixCard(){
   var lt0=latest(scopedVisits()), mods=['v03','upa','enf','aud'].filter(function(m){return lt0.some(function(v){return v.mod===m})}), head=mods.map(function(m){return '<th>'+MODS[m].tag+'</th>'}).join('');
   var lt=latest(scopedVisits());
@@ -906,20 +936,27 @@ function viewVisita(id){
   var rows=ncs.map(function(it){
     var pl=plans.filter(function(x){return x.unit===v.unit&&x.mod===v.mod&&x.name===it.name})[0];
     var ev='<div class="evid">'+(it.ev?Array.apply(null,Array(Math.min(it.ev,4))).map(function(){return '<span title="Foto de evidência">'+ic('cam')+'</span>'}).join(''):'<span class="note">Sem foto</span>')+'</div>';
-    return '<tr><td data-l="Item"><b>'+esc(it.name)+'</b><span class="sm">'+esc(it.gn)+'</span></td><td data-l="Observação" style="max-width:260px">'+OBS[hash(v.id+it.name)%OBS.length]+'</td><td data-l="Evidências">'+ev+'</td><td data-l="Responsável">'+(pl?pl.resp.c+' · '+pl.resp.n:'A definir')+'</td><td data-l="Prazo" class="num">'+(pl?fdate(pl.prazo):'–')+'</td><td data-l="Status">'+(pl?stPill(pl.status):'<span class="pill na plain">Visita anterior</span>')+'</td></tr>'}).join('');
-  return '<div class="head"><div><a href="#visitas" class="back">← Voltar às visitas</a><h1 style="margin-top:6px">'+esc(v.unit)+'</h1><p>'+MODS[v.mod].name+'</p><div class="vmeta"><span><small>Visita</small><b>'+fd(v.date)+'</b></span><span><small>Responsável</small><b>'+RESP[hash(v.id)%RESP.length]+'</b></span><span><small>Acompanhamento</small><b>'+FOLLOW[hash(v.unit)%FOLLOW.length]+'</b></span><span><small>Situação</small><span class="pill ok">Completa</span></span></div> </div><div class="acts2"><button class="btn line" data-act="report" data-id="'+v.id+'">Gerar relatório</button><a class="btn sec" href="#comparativo" data-act="cmpFrom" data-id="'+v.id+'">Comparar visitas</a></div></div>'+(S.rep===v.id?'<div class="card" style="background:var(--soft)"><b>Relatório da visita</b><p class="note" style="margin-top:4px">Na versão final, este botão gera o relatório em HTML e PDF no mesmo padrão dos relatórios atuais (visão gerencial, conformidade por seção, evidências e plano de ação).</p></div>':'')+
+    return '<tr><td data-l="Item"><b>'+esc(it.name)+'</b><span class="sm">'+esc(it.gn)+'</span></td><td data-l="Observação" style="max-width:260px">'+(it.obs?esc(it.obs):'<span class="note">Sem observação registrada</span>')+'</td><td data-l="Evidências">'+ev+'</td><td data-l="Responsável">'+(pl?pl.resp.c+' · '+pl.resp.n:'A definir')+'</td><td data-l="Prazo" class="num">'+(pl?fdate(pl.prazo):'–')+'</td><td data-l="Status">'+(pl?stPill(pl.status):'<span class="pill na plain">Visita anterior</span>')+'</td></tr>'}).join('');
+  return '<div class="head"><div><a href="#visitas" class="back">← Voltar às visitas</a><h1 style="margin-top:6px">'+esc(v.unit)+'</h1><p>'+MODS[v.mod].name+'</p><div class="vmeta"><span><small>Visita</small><b>'+fd(v.date)+'</b></span><span><small>Responsável</small><b>'+esc(v.resp||'–')+'</b></span><span><small>Acompanhamento</small><b>'+esc(v.acomp||'–')+'</b></span><span><small>Situação</small><span class="pill ok">Completa</span></span></div> </div><div class="acts2"><button class="btn line" data-act="report" data-id="'+v.id+'">Gerar relatório</button><a class="btn sec" href="#comparativo" data-act="cmpFrom" data-id="'+v.id+'">Comparar visitas</a></div></div>'+(S.rep===v.id?'<div class="card" style="background:var(--soft)"><b>Relatório da visita</b><p class="note" style="margin-top:4px">Esta tela já reúne os blocos do relatório (fotografia, conformidade por seção, frentes com desvios, itens sólidos e não conformidades). A exportação em HTML/PDF ainda não está disponível.</p></div>':'')+
   '<div class="grid g3 k3"><div class="card kpi '+st(p).k+'"><small>Conformidade</small><strong class="num">'+fmt(p)+'</strong><em>'+st(p).t+' · meta 85%</em></div><div class="card kpi bad"><small>Itens não conformes</small><strong class="num">'+ncs.length+'</strong><em>de '+v.items.length+' itens</em></div><div class="card kpi"><small>Itens não aplicáveis</small><strong class="num">'+v.items.filter(function(i){return i.s==='NA'}).length+'</strong><em>fora do cálculo</em></div></div>'+
-  '<div class="grid g21"><section class="card"><h2>Por grupo de itens</h2><p class="sub">Percentual de conformidade de cada grupo.</p>'+groups+legend()+'</section><section class="card"><h2>Resumo</h2><p class="sub">Cálculo: itens conformes ÷ itens aplicáveis.</p><div class="list"><div class="li"><span>Conformes</span><b class="num">'+v.items.filter(function(i){return i.s==='C'}).length+'</b></div><div class="li"><span>Não conformes</span><b class="num">'+ncs.length+'</b></div><div class="li"><span>Não se aplica</span><b class="num">'+v.items.filter(function(i){return i.s==='NA'}).length+'</b></div></div></section></div>'+
-  (v.mod==='v03'?capCard(v):'')+(ncs.length?'<section class="card"><h2>Não conformidades e plano de ação</h2><p class="sub">Evidências em foto ficam no Drive e abrem a partir do formulário.</p><div style="overflow-x:auto">'+(ncs.length?'<table class="tbl rt cmpt"><thead><tr><th>Item</th><th>Observação</th><th>Evidências</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>':'')+'</div></section>':'')
+  reportBlocks(v,p)+
+  (ncs.length?'<section class="card"><h2>Não conformidades e plano de ação</h2><p class="sub">Evidências em foto ficam no Drive e abrem a partir do formulário.</p><div style="overflow-x:auto">'+(ncs.length?'<table class="tbl rt cmpt"><thead><tr><th>Item</th><th>Observação</th><th>Evidências</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>':'')+'</div></section>':'')
+}
+function reportBlocks(v,p){
+  var sc=secoes(v.items), ap=sc.filter(function(x){return x.ap>0}), tot={c:0,nc:0,na:0};
+  sc.forEach(function(x){tot.c+=x.c;tot.nc+=x.nc;tot.na+=x.na});
+  var apl=tot.c+tot.nc, asc=ap.slice().sort(function(a,b){return a.p-b.p||b.nc-a.nc});
+  var ge90=ap.filter(function(x){return x.p>=.9}).length, lt60=ap.filter(function(x){return x.p<.6}).length;
+  var foto='<section class="card"><h2>1. A fotografia da visita</h2><p>Dos '+v.items.length+' itens do checklist, '+apl+' eram aplicáveis. Entre eles, '+tot.c+' foram conformes e '+tot.nc+' não conformes: <b>'+fmt(p)+'</b> de conformidade. '+tot.na+' itens não se aplicam e ficam fora do cálculo.</p></section>';
+  var porSec='<section class="card"><h2>2. Conformidade por seção</h2><p class="sub">Conforme ÷ (Conforme + Não Conforme). “Não se aplica” fica fora do denominador. Ordenado da menor para a maior.</p><div class="grid g3 k3" style="margin-bottom:10px"><div class="card kpi"><small>Seções avaliadas</small><strong class="num">'+ap.length+'</strong></div><div class="card kpi ok"><small>Seções ≥ 90%</small><strong class="num">'+ge90+'</strong></div><div class="card kpi bad"><small>Seções &lt; 60%</small><strong class="num">'+lt60+'</strong></div></div>'+asc.map(secRow).join('')+sc.filter(function(x){return x.ap===0}).map(secRow).join('')+legend()+'</section>';
+  var fr=asc.filter(function(x){return x.nc>0}).sort(function(a,b){return b.nc-a.nc||a.p-b.p}).slice(0,4);
+  var frentes=fr.length?'<section class="card"><h2>3. Frentes com maior concentração de desvios</h2>'+fr.map(function(x){return '<div class="li" style="display:block"><b>'+esc(x.gn)+'</b> <span class="note">· '+x.nc+' NC · '+fmt(x.p)+'</span><div class="note" style="margin-top:2px">'+x.ncs.slice(0,4).map(function(i){return esc(i.name)}).join('; ')+(x.ncs.length>4?'…':'')+'</div></div>'}).join('')+'</section>':'';
+  var sol=ap.filter(function(x){return x.p===1});
+  var solido='<section class="card"><h2>4. O que aparece sólido</h2><p>'+(sol.length?'Seções com 100% dos itens aplicáveis conformes: '+sol.map(function(x){return esc(x.gn)+' ('+x.ap+' aplic.)'}).join(', ')+'.':'Nenhuma seção chegou a 100% dos itens aplicáveis.')+'</p></section>';
+  return foto+porSec+frentes+solido;
 }
 var OBS=['Sem evidência formal arquivada no momento da visita.','Pendência já encaminhada ao setor responsável.','Item identificado sem sinalização ou registro.','Equipamento em manutenção, aguardando substituição.','Protocolo existente, mas sem treinamento registrado.','Condição estrutural observada, depende de obra ou contrato.'];
 var FOLLOW=['Gestor e coordenação assistencial','Gestor e coordenação de enfermagem','Direção técnica e gestor','Coordenação da unidade'];
-function capCard(v){
-  var r=rng(hash(v.id+'cap')), con=60+Math.floor(r()*40), ati=con-Math.floor(r()*4), blo=con-ati, int_=Math.floor(ati*(.45+r()*.35)), ai=Math.floor(r()*14), at=Math.floor(r()*9);
-  return '<section class="card"><h2>Capacidade e ocupação</h2><p class="sub">Registrada no momento da visita.</p><div class="grid g4 k" style="gap:10px">'+
-  [['Leitos contratados',con],['Leitos ativos',ati],['Bloqueados',blo],['Internados',int_],['Aguardando internação',ai],['Aguardando transferência',at]].map(function(x){return '<div><small class="muted">'+x[0]+'</small><div class="num" style="font-size:22px;font-weight:800">'+x[1]+'</div></div>'}).join('')+
-  '<div><small class="muted">Ocupação</small><div class="num" style="font-size:22px;font-weight:800">'+fmt(int_/ati)+'</div></div></div></section>'
-}
 function stPill(s){return '<span class="pill '+({'Aberto':'info','Em andamento':'warn','Concluído':'ok','Vencido':'bad'}[s])+'">'+s+'</span>'}
 
 function tl(x){var c=x.s==='C'?'ok':x.s==='NC'?'bad':'na',t=x.s==='C'?'C':x.s==='NC'?'NC':'N/A';return '<span class="tl '+c+'" title="Visita de '+fd(x.v.date)+'">'+fd(x.v.date).slice(0,5)+' · '+t+'</span>'}
@@ -1152,7 +1189,7 @@ function applyData(r){
   Object.keys(r.groups||{}).forEach(function(k){if(MODS[k])MODS[k].groups=r.groups[k]});
   PLANS=r.plans||{};PLAN_EDIT=r.plan_edit||[];
   VISITS.length=0;var seen={};
-  r.visits.forEach(function(v){VISITS.push({id:v.id,mod:v.mod,unit:v.unit,date:v.date,resp:v.resp,items:v.items})});
+  r.visits.forEach(function(v){VISITS.push({id:v.id,mod:v.mod,unit:v.unit,date:v.date,resp:v.resp,acomp:v.acomp||'',items:v.items})});
   VISITS.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
   VISITS.forEach(function(v){var k=v.unit+'|'+v.mod;seen[k]=(seen[k]||0)+1;v.k=seen[k]-1});
 }

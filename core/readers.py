@@ -164,6 +164,9 @@ def _estado(form, bruto):
     return {"OK": "C", "Parcial": PARCIAL_COMO, "Não": "NC", "N/A": "NA"}.get(b)
 
 
+OBSCOL = {"aud": "Observações / Evidências", "enf": "Observação", "v03": "Observação", "upa": None}
+ACOMPCOL = {"aud": "Nome de Quem Acompanhou", "enf": "Nome de Quem Acompanhou", "v03": "Nome de Quem Acompanhou", "upa": "Acompanhante / função"}
+
 COLS = {  # coluna da unidade, do responsável e do nº do item/estado em cada formulário
     "aud": ("Unidade", "Responsável pela Visita", "Nº do Item", "Resposta"),
     "enf": ("Hospital", "Responsável pela Visita", "Nº do Item", "Situação"),
@@ -186,7 +189,8 @@ def _visitas_de(form, vis, itens, cat):
                     n = int(float(r[ncol]))
                 except (TypeError, ValueError):
                     continue
-                m[n] = (_estado(form, r[scol]), r.get("Qtde de Anexos", "0"))
+                oc = OBSCOL.get(form)
+                m[n] = (_estado(form, r[scol]), r.get("Qtde de Anexos", "0"), str(r.get(oc, "") or "").strip()[:600] if oc else "")
             por_cod[cod] = m
     for _, v in vis.iterrows():
         cod = str(v["Código da Visita"]).strip()
@@ -198,14 +202,15 @@ def _visitas_de(form, vis, itens, cat):
         if scol:
             for gi, (gn, itm) in enumerate(cat):
                 for n, nome in itm:
-                    s, ev = resp.get(n, (None, "0"))
+                    s, ev, ob = resp.get(n, (None, "0", ""))
                     try:
                         ev = int(float(ev or 0))
                     except ValueError:
                         ev = 0
-                    its.append({"g": gi, "gn": gn, "name": nome, "s": s or "NA", "ev": ev})
+                    its.append({"g": gi, "gn": gn, "name": nome, "s": s or "NA", "ev": ev, "obs": ob, "n": n})
         out.append({"id": cod, "mod": form, "unit": str(v.get(ucol, "")).strip(), "date": d,
-                    "resp": str(v.get(rcol, "")).strip(), "items": its})
+                    "resp": str(v.get(rcol, "")).strip(),
+                    "acomp": str(v.get(ACOMPCOL.get(form, ""), "") or "").strip(), "items": its})
     return out
 
 
