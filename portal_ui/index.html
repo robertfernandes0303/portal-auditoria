@@ -433,7 +433,7 @@ var MODS = {
       ['Atendimento assistencial','Prescrições legíveis e assinadas','Prontuário completo e identificado','Sala de observação equipada','Checklist da sala de emergência'],
       ['Apoio diagnóstico','Fluxo de exames laboratoriais','ECG calibrado','Proteção radiológica','Laudos liberados no prazo'],
       ['Gestão e rotinas','Escala médica completa','Passagem de plantão registrada','Indicadores mensais alimentados','Metas conhecidas pela equipe']]},
-  enf:{name:'Checklist de Visita Técnica · Enfermagem',tag:'Enfermagem',ic:'enf',url:'https://checklist-visita-tecnica-isssl.streamlit.app/',desc:'Visita técnica de enfermagem: item verificado, previsto no TR e situação, com evidências em foto.',
+  enf:{name:'Visita Técnica · Enfermagem',tag:'Enfermagem',ic:'enf',url:'https://checklist-visita-tecnica-isssl.streamlit.app/',desc:'Visita técnica de enfermagem: item verificado, previsto no TR e situação, com evidências em foto.',
     groups:[
       ['Processo de enfermagem','SAE implantada','Evolução registrada por turno','Prescrição de enfermagem','Escala de risco aplicada'],
       ['Medicação segura','Dupla checagem de alta vigilância','Rotulagem de soluções','Registro de administração','Carro de medicação organizado'],
@@ -736,11 +736,11 @@ function viewPerfis(tabs,msg){
 }
 
 function viewNova(){
-  var n=S.nv, m=n.mod?MODS[n.mod]:null, ok=m&&(m.url||m.inapp)&&(n.unit||m.free);
+  var n=S.nv, m=n.mod?MODS[n.mod]:null, esc0=!!(m&&m.nm); if(esc0&&n.unit)n.unit=''; var ok=m&&(m.url||m.inapp)&&(n.unit||m.free);
   var items=Object.keys(MODS).map(function(k){var x=MODS[k], off=!(x.url||x.inapp);
     return '<li><button type="button" data-act="nvmod" data-v="'+k+'" data-t="'+esc(x.name.toLowerCase())+'" role="option" aria-selected="'+(n.mod===k)+'"'+(off?' disabled':'')+'>'+x.name+'<span>'+(off?'Em desenvolvimento':x.tag||'Formulário de visita')+'</span></button></li>'}).join('');
   var info='';
-  if(ok){
+  if(ok&&!esc0){
     var vs=VISITS.filter(function(v){return v.mod===n.mod&&v.unit===n.unit}).sort(function(a,b){return a.date<b.date?1:-1});
     var og=ONGOING.filter(function(o){return o.mod===n.mod&&o.unit===n.unit})[0];
     info='<div class="nvinfo">'+(og?'<b>Há uma visita em andamento ('+og.pct+'% preenchida).</b> Use “Continuar” na tela Início em vez de abrir uma nova.':(vs.length?'Última visita desta unidade neste formulário: <b>'+vs[0].date.split('-').reverse().join('/')+'</b>.':'<b>Primeira visita</b> desta unidade neste formulário.'))+'</div>';
@@ -748,7 +748,7 @@ function viewNova(){
   return '<div class="head"><div><h1>Nova visita</h1><p>Escolha o formulário e a unidade. O preenchimento acontece aqui no portal.</p></div></div>'+
   '<section class="card"><div class="nvg">'+
   '<div class="cbx"><label for="nv-f">Formulário</label><input id="nv-f" class="cbi" type="text" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="nv-l" placeholder="Selecione ou busque o formulário" value="'+(m?esc(m.name):'')+'"><ul class="cbl" id="nv-l" role="listbox" hidden>'+items+'<li class="none" hidden>Nenhum formulário encontrado.</li></ul></div>'+
-  '<div class="sel"><label for="nv-unit">Unidade visitada</label><select id="nv-unit" data-bind="nvunit"><option value="">Selecione a unidade</option>'+UNITS.map(function(u){return '<option'+(n.unit===u?' selected':'')+'>'+esc(u)+'</option>'}).join('')+'</select></div></div>'+
+  (esc0?'<div class="nvinfo"><b>Unidade nova, em licitação.</b> Não há lista de unidades: no início do formulário, digite o nome do hospital/UPA, a cidade, a UF e “licitação”. Esta visita serve para conhecer o escopo e não entra em cálculos nem rankings.</div>':'<div class="sel"><label for="nv-unit">Unidade visitada</label><select id="nv-unit" data-bind="nvunit"><option value="">Selecione a unidade</option>'+UNITS.map(function(u){return '<option'+(n.unit===u?' selected':'')+'>'+esc(u)+'</option>'}).join('')+'</select></div>')+'</div>'+
   info+
   '<div style="margin-top:16px">'+(ok?(m.inapp?'<button class="btn" data-fa="start">Iniciar visita</button>':'<a class="btn" href="'+m.url+'" target="_blank" rel="noopener">Abrir formulário '+ic('ext')+'</a>'):'<span class="btn" aria-disabled="true" style="opacity:.5;cursor:not-allowed">Abrir formulário</span>')+'</div></section>'
 }
@@ -775,7 +775,7 @@ function viewPainel(){
   var s=p==null?null:st(p);
   var tr=trendSvg(vs), uonly=!isGlobal(), kp='<div class="grid g4 k"><div class="card kpi '+(s?s.k:'')+'"><small>Conformidade geral</small><strong class="num">'+fmt(p)+'</strong><em>'+(s?s.t+' · meta 85%':'')+'</em></div>'+
   '<div class="card kpi bad"><small>Não conformidades abertas</small><strong class="num">'+nc+'</strong><em>nas últimas visitas</em></div>'+
-  '<div class="card kpi warn"><small>Planos de ação</small><strong class="num">'+abertos+'</strong><em>em aberto · '+venc+' vencidos</em></div>'+
+  '<div class="card kpi warn"><small>Planos de ação em aberto</small><strong class="num">'+(abertos+venc)+'</strong><em>'+(abertos)+' no prazo · '+venc+' vencidos</em></div>'+
   '<div class="card kpi"><small>Visitas realizadas</small><strong class="num">'+vs.length+'</strong><em>'+perLabel()+'</em></div></div>';
   var byWhat, title, sub;
   if(S.f.mod==='all'){
@@ -805,6 +805,17 @@ function secoes(items){
 function secRow(x){
   return '<div class="row"><div class="lb">'+esc(x.gn)+'<small>'+x.c+' conf. · '+x.nc+' não conf. · '+x.na+' N/A</small></div>'+(x.p==null?'<div class="track"></div><div class="v num">N/A</div>':bar(x.p)+'<div class="v num">'+fmt(x.p)+'</div>')+'</div>';
 }
+
+function planBlock(v,id){
+  var all=plansFor(scopedVisits().filter(function(x){return x.unit===v.unit&&x.mod===v.mod})).filter(function(x){return x.status!=='Concluído'}).sort(function(a,b){return a.prazo-b.prazo});
+  if(!all.length)return '<div class="note" style="margin:6px 0 10px">Sem ações abertas neste formulário.</div>';
+  var ex=S.pexp['p'+id], list=ex?all:all.slice(0,5), ed=canEditPlan(v.unit);
+  var rows=list.map(function(x){
+    return '<div class="act"><div><b>'+esc(x.name)+'</b><span class="sm">'+esc(x.gn)+'</span>'+(x.PL&&x.PL.acao?'<span class="sm"><b>Ação:</b> '+esc(x.PL.acao)+'</span>':'')+(x.PL&&x.PL.obs?'<span class="sm"><b>Obs.:</b> '+esc(x.PL.obs)+'</span>':'')+'</div>'+
+      '<div><span class="lbl-s">Responsável e prazo</span><b>'+esc(x.resp.c)+'</b><span class="sm num">Prazo '+fdate(x.prazo)+'</span></div><div class="acts">'+stPill(x.status)+'</div></div>'+planEdit(x)}).join('');
+  return '<div style="margin:10px 0"><h3 style="font-size:15px;margin:0 0 4px">Plano de ação · '+all.length+' em aberto</h3><p class="note" style="margin:0 0 6px">'+(ed?'Toque em “Editar plano de ação” para definir ação, responsável, prazo e situação.':'Somente consulta para o seu perfil.')+'</p>'+rows+
+    (all.length>5?'<button class="btn line" style="margin-top:8px;width:100%" data-act="pexp" data-u="p'+esc(id)+'">'+(ex?'Mostrar menos':'Mostrar todas as '+all.length+' ações')+'</button>':'')+'</div>';
+}
 function drillCard(){
   var lt=latest(scopedVisits()).filter(function(v){return v.items&&v.items.length});
   if(!lt.length)return '';
@@ -817,7 +828,7 @@ function drillCard(){
       var nc=v.items.filter(function(i){return i.s==='NC'}).length;
       var id='dr-'+ui+'-'+v.mod;
       return '<details class="vtd drl" id="'+esc(id)+'"'+(S.dopen&&S.dopen[id]?' open':'')+'><summary><b>'+esc(MODS[v.mod].name)+'</b><span class="note"> · visita de '+fd(v.date)+' · '+nc+' não conformes</span><span class="num" style="float:right;font-weight:800">'+fmt(vScore(v))+'</span></summary>'+
-        '<div style="padding:8px 0">'+(sc.map(secRow).join('')||'<div class="empty">Sem itens aplicáveis.</div>')+'</div><a class="btn line" href="#visita-'+esc(v.id)+'" style="margin-bottom:8px">Abrir relatório da visita</a></details>';
+        '<div style="padding:8px 0">'+(sc.map(secRow).join('')||'<div class="empty">Sem itens aplicáveis.</div>')+'</div>'+planBlock(v,id)+'<a class="btn line" href="#visita-'+esc(v.id)+'" style="margin-bottom:8px">Abrir relatório da visita</a></details>';
     }).join('');
     var idu='dru-'+ui;
     return '<details class="vtd drl" id="'+esc(idu)+'"'+(S.dopen&&S.dopen[idu]?' open':'')+'><summary><b>'+esc(u)+'</b><span class="note"> · '+vs.length+' formulário(s)</span><span class="num" style="float:right;font-weight:800">'+fmt(agg(us[u]))+'</span></summary><div style="padding:6px 0 6px 12px">'+inner+'</div></details>';
@@ -1518,7 +1529,7 @@ function viewVT(){
     var ab=f.abertas&&f.abertas.length?'<section class="card" style="margin-bottom:16px"><h2 style="margin:0 0 4px">Visitas em aberto ('+f.abertas.length+')</h2><p class="note" style="margin:0 0 6px">Toque em Continuar para retomar de onde parou.</p>'+f.abertas.map(vtSummary).join('')+err.replace('role="alert"','role="alert" data-e')+'</section>':'';
     var h=f.h;
     return vtHead('Nova visita ou retomada de visita em aberto')+ab+'<section class="card"><h2 style="margin:0 0 12px">Nova visita</h2><div class="nvg">'+
-    '<div class="sel"><label for="vh-h">'+(vtU()?'Nome da unidade (UPA / PAM) *':'Nome do hospital *')+'</label><input id="vh-h" class="cbi" type="text" list="vh-dl" autocomplete="off" value="'+esc(h.hospital)+'" data-vi="h-hospital" placeholder="'+(vtU()?'Digite ou escolha a unidade':'Digite ou escolha o hospital')+'"><datalist id="vh-dl">'+UNITS.map(function(u){return '<option value="'+esc(u)+'">'}).join('')+'</datalist></div>'+
+    '<div class="sel"><label for="vh-h">'+(vtU()?'Nome da unidade (UPA / PAM) *':'Nome do hospital *')+'</label><input id="vh-h" class="cbi" type="text" '+(MODS[f.form].nm?'':'list="vh-dl" ')+'autocomplete="off" value="'+esc(h.hospital)+'" data-vi="h-hospital" placeholder="'+(MODS[f.form].nm?'Ex.: nome, cidade/UF e licitação':(vtU()?'Digite ou escolha a unidade':'Digite ou escolha o hospital'))+'">'+(MODS[f.form].nm?'':'<datalist id="vh-dl">'+UNITS.map(function(u){return '<option value="'+esc(u)+'">'}).join('')+'</datalist>')+'</div>'+
     '<div class="sel"><label for="vh-c">Cidade</label><input id="vh-c" class="cbi" type="text" value="'+esc(h.cidade)+'" data-vi="h-cidade"></div>'+
     '<div class="sel"><label for="vh-uf">UF</label><select id="vh-uf" data-vi="h-uf"><option value="">—</option>'+f.cfg.ufs.map(function(u){return '<option'+(h.uf===u?' selected':'')+'>'+u+'</option>'}).join('')+'</select></div>'+
     '<div class="sel"><label for="vh-d">Data da visita *</label><input id="vh-d" class="cbi" type="date" max="'+fmNow().iso+'" value="'+esc(h.data)+'" data-vi="h-data"></div>'+
