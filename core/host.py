@@ -86,8 +86,12 @@ def run():
                 if pl.get("fresh"):
                     andamento.limpar_cache()
                 _err = []
-                _on = andamento.listar(store, mail, _err)
-                reply = {"kind": "data_load", "ok": True, **readers.load(store, mail),
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor(max_workers=2) as _ex:      # painel e rascunhos lidos ao mesmo tempo
+                    _fa = _ex.submit(andamento.listar, store, mail, _err)
+                    _fb = _ex.submit(readers.load, store, mail)
+                    _on, _dados = _fa.result(), _fb.result()
+                reply = {"kind": "data_load", "ok": True, **_dados,
                          "ongoing": _on, "ongoing_err": bool(_err), **plans.visible(store, mail)}
             except Exception as e:
                 reply = {"kind": "data_load", "ok": False, "msg": str(e)[:160]}

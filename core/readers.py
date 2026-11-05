@@ -204,12 +204,20 @@ def load(store, mail):
     ctx = Ctx(store, mail, user)
     nomes = {u["nome"] for u in store.units(only_active=False)}
     problems, visits = [], []
-    for form in FORMS:
-        if not FORMS[form].get("ready"):
-            continue
+
+    def _um(form):                      # cada formulário lê suas próprias planilhas; roda em paralelo
+        prob, out = [], []
         cat = _catalogo(form)
-        for vis, itens in _fontes(store, form, problems):
-            visits += _visitas_de(form, vis, itens, cat)
+        for vis, itens in _fontes(store, form, prob):
+            out += _visitas_de(form, vis, itens, cat)
+        return prob, out
+
+    prontos = [f for f in FORMS if FORMS[f].get("ready")]
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=max(1, len(prontos))) as ex:
+        for prob, out in ex.map(_um, prontos):   # ex.map preserva a ordem dos formulários
+            problems += prob
+            visits += out
     vistos, final = set(), []
     for v in visits:
         k = (v["mod"], v["id"])

@@ -174,6 +174,7 @@ a.who:hover{background:rgba(255,255,255,.14)}
 .avbtn{width:44px;height:44px;border-radius:50%;background:var(--cyan);color:#003366;font-weight:800;display:grid;place-items:center;text-decoration:none}
 .a4{max-width:760px;background:#fff;color:#14233A}
 .fbar>summary{display:none}
+.msel{position:relative}.msel details>summary{cursor:pointer;list-style:none;min-height:44px;display:flex;align-items:center}.msel details>summary::-webkit-details-marker{display:none}.mpop{position:absolute;z-index:30;left:0;top:calc(100% + 4px);min-width:260px;max-width:92vw;max-height:60vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:0 8px 24px rgba(0,40,94,.18)}.mact{display:flex;gap:8px}.mck{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 4px;cursor:pointer}.mck input{width:20px;height:20px}
 .top .sp{flex:1}
 .ong .li>div:first-child{flex:0 0 40%;min-width:220px}
 .seg button{min-height:40px}
@@ -403,6 +404,8 @@ label.chk input[type=checkbox]{width:24px;height:24px}}
 <div id="root"></div>
 
 <script>
+/* o Streamlit entrega o iframe com scrolling="no": sem isto o Chrome ignora a roda do mouse dentro do portal */
+try{if(window.frameElement&&window.frameElement.getAttribute('scrolling')!=='yes')window.frameElement.setAttribute('scrolling','yes')}catch(e){}
 /* ============ dados fictícios ============ */
 var TODAY = new Date(2026,9,30);
 var ROLES = {
@@ -518,6 +521,9 @@ function plansFor(vs){
 /* ============ estado e escopo ============ */
 var S={pt:'users',pp:{id:null,mode:null,draft:null},pe:{id:null,draft:null},vm:'all',nv:{mod:null,unit:''},pexp:{},h:{unit:null,mod:null,flt:'all'},user:null,role:'resp',f:{unit:'all',mod:'all',per:'all',from:'',to:''},cmp:{unit:null,mod:null,a:null,b:null,flt:'all'},pf:'all',vf:'all',pm:'all'};
 function inScope(u){var r=RL();return !r.units||r.units.indexOf(u)>-1}
+function fu(){return S.f.units||[]}
+function unitOK(u){var a=fu();return a.length===0||a.indexOf(u)>-1}
+function fuSet(a){S.f.units=a;S.f.unit=a.length===1?a[0]:'all'}
 function scopeUnits(){return UNITS.filter(function(u){return inScope(u)&&VISITS.some(function(v){return v.unit===u})})}
 function modsWithData(){return ['v03','upa','enf','aud'].filter(function(m){return scopedVisits().some(function(v){return v.mod===m})})}
 function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -529,8 +535,8 @@ function inPeriod(v){var f=S.f,p=f.per,d=v.date;
   if(p==='custom')return (!f.from||d>=f.from)&&(!f.to||d<=f.to);
   return true}
 function perLabel(){var f=S.f;return f.per==='30'?'últimos 30 dias':f.per==='90'?'últimos 90 dias':f.per==='mes'?'mês atual':f.per==='custom'?(f.from?fd(f.from):'início')+' a '+(f.to?fd(f.to):'hoje'):'todo o período'}
-function scopedVisits(){return VISITS.filter(function(v){return inScope(v.unit)&&(S.f.unit==='all'||v.unit===S.f.unit)&&inPeriod(v)})}
-function filtered(){var f=S.f;return scopedVisits().filter(function(v){return (f.unit==='all'||v.unit===f.unit)&&(f.mod==='all'||v.mod===f.mod)})}
+function scopedVisits(){return VISITS.filter(function(v){return inScope(v.unit)&&unitOK(v.unit)&&inPeriod(v)})}
+function filtered(){var f=S.f;return scopedVisits().filter(function(v){return unitOK(v.unit)&&(f.mod==='all'||v.mod===f.mod)})}
 function latest(vs){var m={};vs.forEach(function(v){var k=v.unit+'|'+v.mod;if(!m[k]||m[k].date<v.date)m[k]=v});return Object.keys(m).map(function(k){return m[k]})}
 function agg(vs){var c=0,n=0;vs.forEach(function(v){v.items.forEach(function(i){if(i.s==='C'){c++;n++}else if(i.s==='NC')n++})});return n?c/n:null}
 
@@ -599,10 +605,12 @@ function navList(){var n=NAV0.slice();if(can('perm')||can('conn'))n.push(['permi
 var NAV=NAV0;
 function unitSel(){
   var su=scopeUnits(), single=su.length===1;
-  var uo=single?[[su[0],su[0]]]:[['all','Todas as unidades']].concat(su.map(function(u){return [u,u]}));
-  return select('f-unit','Unidade',uo,S.f.unit,single)
+  if(single)return select('f-unit','Unidade',[[su[0],su[0]]],S.f.unit,true);
+  var a=fu().filter(function(u){return su.indexOf(u)>-1}),lab=a.length===0?'Todas as unidades':a.length===1?a[0]:a.length+' unidades';
+  return '<div class="sel msel"><label>Unidades</label><details id="f-units"'+(S.fuopen?' open':'')+'><summary class="cbi">'+esc(lab)+'</summary><div class="mpop"><div class="mact"><button type="button" class="btn line" data-act="fu-all">Marcar todas</button><button type="button" class="btn line" data-act="fu-none">Limpar</button></div><p class="note" style="margin:6px 0">Sem nenhuma marcada, o painel mostra todas as unidades.</p>'+
+   su.map(function(u,i){return '<label class="mck"><input type="checkbox" data-bind="f-unitc" data-u="'+esc(u)+'"'+(a.indexOf(u)>-1?' checked':'')+'> <span>'+esc(u)+'</span></label>'}).join('')+'</div></details></div>'
 }
-function fsum(){return '<span>Unidade: <b>'+(S.f.unit==='all'?'Todas':esc(S.f.unit))+'</b></span><span>Período: <b>'+perLabel().replace(/^./,function(c){return c.toUpperCase()})+'</b></span><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'}
+function fsum(){return '<span>Unidade: <b>'+(fu().length===0?'Todas':fu().length===1?esc(fu()[0]):fu().length+' unidades')+'</b></span><span>Período: <b>'+perLabel().replace(/^./,function(c){return c.toUpperCase()})+'</b></span><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'}
 function searchBox(ph){return '<label class="search" style="flex:0 1 380px"><span class="sr">Buscar</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="q" type="search" placeholder="'+ph+'" data-bind="q" value="'+esc(S.q||'')+'"></label>'}
 function periodSel(){
   var o=[['all','Todo o período'],['30','Últimos 30 dias'],['90','Últimos 90 dias'],['mes','Mês atual'],['custom','Personalizado']];
@@ -627,7 +635,7 @@ function viewConta(){
   '<section class="card"><h2>Alterar senha</h2><p class="sub">Para quem entra com usuário e senha do portal.</p><form id="pwForm" class="lg-box" style="max-width:none" autocomplete="off"><div class="field"><label for="pw0">Senha atual</label><input id="pw0" type="password" autocomplete="current-password" required></div><div class="field"><label for="pw1">Nova senha</label><input id="pw1" type="password" autocomplete="new-password" minlength="8" required><span class="note">Mínimo de 8 caracteres.</span></div><div class="field"><label for="pw2">Confirmar nova senha</label><input id="pw2" type="password" autocomplete="new-password" required></div><button class="btn" type="submit">Salvar nova senha</button><p class="note" id="pwMsg" role="status" aria-live="polite"></p></form>'+
   '<div class="callout" style="margin-top:12px"><b>Entra com a conta Microsoft?</b><span>Sua senha é gerenciada pela Microsoft.</span><a href="https://mysignins.microsoft.com/security-info/password/change" target="_blank" rel="noopener">Alterar senha na Microsoft '+ic('ext')+'</a></div></section></div>'
 }
-function filtersBar(r){return '<details class="fbar"'+(window.innerWidth>640?' open':'')+'><summary>'+fsum()+'</summary><div class="top">'+unitSel()+periodSel()+'<span class="sp"></span><span class="chip">'+r.label+(r.units?' · '+r.units.join(', '):'')+'</span><span class="chip demo">Dados fictícios</span></div></details>'}
+function filtersBar(r){return '<details class="fbar"'+(window.innerWidth>640||S.fbopen?' open':'')+'><summary>'+fsum()+'</summary><div class="top">'+unitSel()+periodSel()+'<span class="sp"></span><span class="chip">'+r.label+(r.units?' · '+r.units.join(', '):'')+'</span><span class="chip demo">Dados fictícios</span></div></details>'}
 function canNew(){return isGlobal()}
 function shell(cur,inner,nf){
   var r=RL(), ini=r.user.split(' ').map(function(x){return x[0]}).join('');
@@ -649,11 +657,11 @@ function viewHome(){
     return '<article class="card mod"><div class="ic">'+ic(m.ic)+'</div><div><h3>'+m.name+'</h3></div><p>'+m.desc+'</p>'+
     '<div class="st">'+(k==='sesmt'?'<span class="pill na">Pendente</span>':'<span class="muted num" style="font-size:12.5px">'+vs.length+' visitas</span>'+pill(p)+'<span class="num" style="font-weight:800">'+fmt(p)+'</span>')+'</div><a class="btn sec" href="#visitas" data-fmod="'+k+'">Ver visitas concluídas</a></article>'
   }).join('');
-  var og=ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&(S.f.unit==='all'||o.unit===S.f.unit)))}).slice(0,(HOSTED&&!S.ogall)?5:999).map(function(o){
+  var og=ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))}).slice(0,(HOSTED&&!S.ogall)?5:999).map(function(o){
     return '<div class="li"><div><b>'+MODS[o.mod].name+'</b><span class="note" style="display:block">'+esc(o.unit)+(HOSTED?' · '+(o.resp?esc(o.resp)+' · ':'')+'atualizado em '+esc(o.since)+' · '+o.feitos+' de '+o.total+' itens':' · iniciada em '+o.since)+'</span></div><div style="display:flex;gap:12px;align-items:center;flex:1 1 220px;justify-content:flex-end"><div class="prog" role="img" aria-label="'+o.pct+'% preenchido"><i style="width:'+o.pct+'%"></i></div><span class="num" style="font-weight:800;width:42px">'+o.pct+'%</span>'+(HOSTED?'<button class="btn" data-act="ongo" data-m="'+o.mod+'" data-u="'+esc(o.unit)+'" data-c="'+esc(o.codigo||'')+'">Continuar</button>':'<a class="btn sec" href="'+MODS[o.mod].url+'" target="_blank" rel="noopener">Continuar</a>')+'</div></div>'
   }).join('')||'<div class="empty">Nenhuma visita em andamento.</div>';
-  var hasOg=ONGOING.some(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&(S.f.unit==='all'||o.unit===S.f.unit)))});
-  var ongS='<section class="card ongs"><h2>Visitas em andamento'+(HOSTED?' ('+ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&(S.f.unit==='all'||o.unit===S.f.unit)))}).length+')':'')+'</h2><p class="sub">'+(HOSTED?'Estas visitas ainda não foram enviadas. Toque em Continuar para voltar exatamente de onde parou.':'Retome de onde parou. O formulário abre em uma nova aba.')+'</p><div class="list ong">'+og+'</div>'+(HOSTED&&ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&(S.f.unit==='all'||o.unit===S.f.unit)))}).length>5?'<button class="btn line" style="margin-top:10px;width:100%" data-act="ogall">'+(S.ogall?'Mostrar só as 5 mais recentes':'Mostrar todas as '+ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&(S.f.unit==='all'||o.unit===S.f.unit)))}).length+' visitas')+'</button>':'')+'</section>';
+  var hasOg=ONGOING.some(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))});
+  var ongS='<section class="card ongs"><h2>Visitas em andamento'+(HOSTED?' ('+ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))}).length+')':'')+'</h2><p class="sub">'+(HOSTED?'Estas visitas ainda não foram enviadas. Toque em Continuar para voltar exatamente de onde parou.':'Retome de onde parou. O formulário abre em uma nova aba.')+'</p><div class="list ong">'+og+'</div>'+(HOSTED&&ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))}).length>5?'<button class="btn line" style="margin-top:10px;width:100%" data-act="ogall">'+(S.ogall?'Mostrar só as 5 mais recentes':'Mostrar todas as '+ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))}).length+' visitas')+'</button>':'')+'</section>';
   return '<div class="head"><div><h1>Olá, '+r.user.split(' ')[0]+'</h1><p>'+r.desc+' '+(us.length===1?'Unidade: '+us[0]+'.':'')+'</p></div>'+(canNew()?'<a class="btn" href="#nova">'+ic('plus')+'Nova visita</a>':'')+'</div>'+
   (hasOg?ongS:'')+(cards?'<div class="grid g3">'+cards+'</div>':'')+(!hasOg&&!cards?'<div class="empty">Nenhuma visita registrada neste filtro.</div>':'')
 }
@@ -943,7 +951,7 @@ function render(){
   if(HOSTED&&!BOOT){root.innerHTML='<div class="login" style="place-items:center;display:grid"><p class="note">Carregando…</p></div>';return}
   if(!S.user){root.innerHTML=real(viewLogin());return}
   var y0=window.scrollY, newRoute=(S._r!==h); S._r=h;
-  var ru=RL(); if(ru.units&&ru.units.length===1)S.f.unit=ru.units[0]; else if(ru.units&&ru.units.indexOf(S.f.unit)<0)S.f.unit='all';
+  var ru=RL(); if(ru.units&&ru.units.length===1)S.f.unit=ru.units[0]; else if(ru.units&&ru.units.indexOf(S.f.unit)<0)S.f.unit='all'; if(S.f.units)S.f.units=S.f.units.filter(inScope);
   var cur,body;
   if(h.indexOf('visita-')===0){cur='visitas';body=viewVisita(h.slice(7))}
   else if(h==='painel'){cur='painel';body=viewPainel()}
@@ -1034,6 +1042,9 @@ document.addEventListener('click',function(e){
     else if(act==='hflt'){S.h.flt=a.dataset.v;var y4=window.scrollY;render();window.scrollTo(0,y4)}
     else if(act==='report'){S.rep=a.dataset.id;var y3=window.scrollY;render();window.scrollTo(0,y3)}
     else if(act==='vmod'){S.vm=a.dataset.v;var y8=window.scrollY;render();window.scrollTo(0,y8)}
+    else if(act==='cedit'){S.cf=a.dataset.f;S.q=a.dataset.u==='__consolidado__'?'':a.dataset.u;render();var ce=document.getElementById('conn-edit');if(ce)ce.scrollIntoView({block:'start'})}
+    else if(act==='fu-all'){fuSet(scopeUnits().slice());S.fuopen=true;var yz=window.scrollY;render();window.scrollTo(0,yz)}
+    else if(act==='fu-none'){fuSet([]);S.fuopen=true;var yy=window.scrollY;render();window.scrollTo(0,yy)}
     else if(act==='pf'){S.pf=a.dataset.v;var y=window.scrollY;render();window.scrollTo(0,y)}
     else if(act==='cflt'){S.cmp.flt=a.dataset.v;var y2=window.scrollY;render();window.scrollTo(0,y2)}
     else if(act==='cmpFrom'){var v=VISITS.filter(function(x){return x.id===a.dataset.id})[0];S.cmp={unit:v.unit,mod:v.mod,a:null,b:v.id,flt:'all'}}
@@ -1061,7 +1072,8 @@ document.addEventListener('change',function(e){
   if(b==='pe-scr'){var sid=e.target.dataset.s,def=PERFIL[S.pe.draft.role].indexOf(sid)>-1,ov=S.pe.draft.ov;if(e.target.checked===def)delete ov[sid];else ov[sid]=e.target.checked;S.pesaved=null;var y9=window.scrollY;render();window.scrollTo(0,y9);return}
   if(b==='nvunit'){S.nv.unit=v;render();return}
   if(b==='role'){S.role=v;if(S.user){S.user=ROLES[v].user;S.f={unit:'all',mod:'all',per:'all',from:'',to:''};S.cmp={unit:null,mod:null,a:null,b:null,flt:'all'};S.h={unit:null,mod:null,flt:'all'};render()}else{document.getElementById('roleDesc').textContent=ROLES[v].desc}}
-  else if(b==='f-unit'){S.f.unit=v;render()}
+  else if(b==='f-unit'){fuSet(v==='all'?[]:[v]);render()}
+  else if(b==='f-unitc'){var uu=e.target.dataset.u,ar=fu().slice(),ix2=ar.indexOf(uu);if(e.target.checked&&ix2<0)ar.push(uu);if(!e.target.checked&&ix2>-1)ar.splice(ix2,1);fuSet(ar);S.fuopen=true;var ys=window.scrollY;render();window.scrollTo(0,ys)}
   else if(b==='f-mod'){S.f.mod=v;render()}
   else if(b==='f-per'){S.f.per=v;if(v==='custom'&&!S.f.from){S.f.from='2026-08-01';S.f.to=iso(TODAY)}render()}
   else if(b==='f-from'){S.f.from=v;render()}
@@ -1185,6 +1197,15 @@ function badge(form,un){
     return k?'<span class="pill info">'+lab+' reconhecida</span>':'<span class="pill bad">'+lab+' inválida</span>'}
   return one(c.planilha,'Planilha','planilha')+' '+one(c.pasta,'Pasta','pasta')
 }
+function connMatrix(){
+  var forms=CFG.forms,act=CFG.units.filter(function(u){return u.ativo});
+  function cell(f,un,lab){var c=cst(f,un),t=((S.ctest||{})[f+'|'+un]||{}).planilha,has=!!(c.planilha||'').trim(),st=t&&t.ok===false?'<span class="pill bad">Sem acesso</span>':t&&t.ok===true?'<span class="pill ok">Conectada</span>':has?'<span class="pill info">Cadastrada</span>':'<span class="pill info plain">Vazia</span>';
+    return '<td data-l="'+esc(lab)+'"><button type="button" class="btn line" style="min-height:44px" data-act="cedit" data-f="'+esc(f)+'" data-u="'+esc(un)+'" aria-label="Editar '+esc(lab)+'">'+st+' <span class="note">Editar</span></button></td>'}
+  var head='<th>Unidade</th>'+forms.map(function(x){return '<th>'+esc(x.name)+'</th>'}).join('');
+  var rows=act.map(function(u){return '<tr><td data-l="Unidade"><b>'+esc(u.nome)+'</b></td>'+forms.map(function(x){var uni=MODS[x.key]&&MODS[x.key].cm==='unica';return uni?'<td data-l="'+esc(x.name)+'"><span class="note">Planilha única do formulário</span></td>':cell(x.key,u.nome,x.name)}).join('')+'</tr>'}).join('');
+  var tot='<tr><td data-l="Unidade"><b>Planilha única / consolidada</b></td>'+forms.map(function(x){return cell(x.key,'__consolidado__',x.name)}).join('')+'</tr>';
+  return '<section class="card" style="margin-bottom:16px"><h2 style="margin:0 0 4px">Resumo das conexões</h2><p class="note" style="margin:0 0 12px">Cada unidade pode ter uma planilha própria em cada formulário. Toque em <b>Editar</b> para ajustar só aquela conexão.</p><div style="overflow-x:auto"><table class="tbl rt cmpt"><thead><tr>'+head+'</tr></thead><tbody>'+rows+tot+'</tbody></table></div></section>'
+}
 function viewConn(){
   var q=(S.q||'').toLowerCase(), forms=CFG.forms, f=S.cf||(forms[0]&&forms[0].key);S.cf=f;
   var sa=CFG.flags.sa_email, msg=S.cmsg?'<div class="nvinfo" role="status" style="margin:0 0 12px'+(S.cmsgbad?';background:var(--bad-bg)':'')+'">'+esc(S.cmsg)+'</div>':'';S.cmsg='';
@@ -1201,7 +1222,7 @@ function viewConn(){
   var dl=connLists();
   var conn='<section class="card"><h2 style="margin:0 0 4px">Conexões com o Google Drive</h2><p class="note" style="margin:0 0 12px">Cada formulário grava e lê dados na planilha e na pasta da unidade. Aceita a URL completa, um trecho dela ou só o ID.</p>'+banner+fchips+searchBox('Buscar unidade')+'<div style="margin-top:6px">'+rows+'</div>'+dl+
    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn" data-act="csave"'+(S.cdirty?'':' disabled style="opacity:.5"')+'>Salvar conexões</button><button class="btn sec" data-act="cauto">Preencher unidades automaticamente</button><button class="btn sec" data-act="cdisc">Atualizar lista do Drive</button><button class="btn sec" data-act="ctest"'+(S.ctesting?' disabled':'')+'>'+(S.ctesting?'Testando…':'Testar conexões')+'</button></div></section>';
-  return '<div class="head sub"><div><h1>Unidades e conexões</h1><p>Cadastre unidades e aponte onde cada formulário guarda seus dados.</p></div></div>'+msg+units+conn
+  return '<div class="head sub"><div><h1>Unidades e conexões</h1><p>Cadastre unidades e aponte onde cada formulário guarda seus dados.</p></div></div>'+msg+units+connMatrix()+'<div id="conn-edit"></div>'+conn
 }
 function connLists(){
   var d=S.disc;if(!d&&HOSTED&&!S.cdiscBusy&&S.me){S.cdiscBusy=true;setTimeout(function(){rpc('conn_discover',{})},0)}
@@ -1275,6 +1296,7 @@ document.addEventListener('click',function(e){
   if(act==='pcancel'){S.pedit=null;S.pmsg='';render();window.scrollTo(0,y);return}
   if(act==='psave'){if(S.pbusy)return;S.pbusy=true;S.pmsg='';var pl=Object.assign({},S.pedx,S.pedd);rpc('plan_save',pl);render();window.scrollTo(0,y)}
 },true);
+document.addEventListener('toggle',function(e){var t=e.target;if(!t)return;if(t.id==='f-units')S.fuopen=t.open;else if(t.classList&&t.classList.contains('fbar')&&window.innerWidth<=640)S.fbopen=t.open},true);
 document.addEventListener('input',function(e){var t=e.target;if(t&&t.dataset&&t.dataset.pf&&S.pedd)S.pedd[t.dataset.pf]=t.value});
 document.addEventListener('click',function(e){var a=e.target.closest('[data-va=leave],[data-fa=leave]');if(a&&HOSTED)setTimeout(function(){loadData(true)},1200)});
 document.addEventListener('click',function(e){var a=e.target.closest('[data-act=ogall]');if(!a||!HOSTED)return;S.ogall=!S.ogall;var y=window.scrollY;render();window.scrollTo(0,y)});
