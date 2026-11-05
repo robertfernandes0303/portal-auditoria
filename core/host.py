@@ -85,8 +85,10 @@ def run():
                 from core import andamento, plans
                 if pl.get("fresh"):
                     andamento.limpar_cache()
+                _err = []
+                _on = andamento.listar(store, mail, _err)
                 reply = {"kind": "data_load", "ok": True, **readers.load(store, mail),
-                         "ongoing": andamento.listar(store, mail), **plans.visible(store, mail)}
+                         "ongoing": _on, "ongoing_err": bool(_err), **plans.visible(store, mail)}
             except Exception as e:
                 reply = {"kind": "data_load", "ok": False, "msg": str(e)[:160]}
         elif act in ("set_password", "remove_password"):

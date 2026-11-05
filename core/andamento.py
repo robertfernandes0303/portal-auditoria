@@ -55,7 +55,7 @@ def _aud(ctx, out):
                     "pct": min(100, round(100 * feitos / total)) if total else 0})
 
 
-def listar(store, mail):
+def listar(store, mail, erros=None):
     user = store.user_by_mail(mail)
     if not user or not user.get("active", True):
         return []
@@ -65,13 +65,18 @@ def listar(store, mail):
         return hit[1]
     ctx = Ctx(store, mail, user)
     out = []
+    falhou = False
     for key in ("aud", "enf", "v03", "upa"):
         if not FORMS.get(key, {}).get("ready"):
             continue
         try:
             _aud(ctx, out) if key == "aud" else _vt(ctx, key, out)
-        except Exception:
+        except Exception as e:
+            falhou = True
+            if erros is not None:
+                erros.append(f"{key}: {str(e)[:80]}")
             continue
     out.sort(key=lambda x: x["atualizado_em"][6:10] + x["atualizado_em"][3:5] + x["atualizado_em"][:2] + x["atualizado_em"][11:], reverse=True)
-    _CACHE[k] = (time.time(), out)
+    if not falhou:  # nunca guardar em cache um resultado incompleto por falha de leitura
+        _CACHE[k] = (time.time(), out)
     return out

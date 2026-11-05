@@ -234,8 +234,8 @@ a.who:hover{background:rgba(255,255,255,.14)}
 .login{min-height:100vh;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
 .lg-art{background:#00285e;color:#fff;padding:44px 44px 0;display:flex;flex-direction:column;gap:26px;position:relative;overflow:hidden}
 .lg-art .brand{display:inline-flex;padding:12px 18px}
-.lg-hero{flex:1;min-height:300px;margin:0 -44px;background-position:right bottom;background-size:cover;background-repeat:no-repeat;position:relative}
-.lg-hero::after{content:"";position:absolute;left:0;right:0;top:0;height:40%;background:linear-gradient(to bottom,#00285e,rgba(0,40,94,0))}
+.lg-hero{flex:1;min-height:300px;margin:0 -44px;background-color:#00285e;background-position:right bottom;background-size:auto 100%;background-repeat:no-repeat;position:relative}
+.lg-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,#00285e,rgba(0,40,94,0) 14%),linear-gradient(to right,#00285e 22%,rgba(0,40,94,0) 62%)}
 .lg-art h1{font-size:clamp(1.9rem,3.4vw,2.8rem);max-width:15ch;color:#fff}
 .lg-art p{color:#C9D8EA;max-width:44ch;margin-top:14px;font-size:17px}
 .sim{border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
@@ -277,7 +277,7 @@ a.who:hover{background:rgba(255,255,255,.14)}
   .lg-art .brand img{height:38px}
   .lg-art h1{font-size:24px;max-width:none}
   .lg-art p{font-size:14px;margin-top:8px}
-  .lg-hero{position:absolute;inset:0;margin:0;min-height:0;z-index:0;background-position:right center}
+  .lg-hero{position:absolute;inset:0;margin:0;min-height:0;z-index:0;background-position:right center;background-size:auto 100%}
   .lg-hero::after{inset:0;height:auto;background:linear-gradient(90deg,#00285e 0%,rgba(0,40,94,.92) 38%,rgba(0,40,94,0) 74%)}
   .lg-form{align-items:flex-start;padding-top:22px;padding-bottom:28px;margin-top:-18px;border-radius:20px 20px 0 0;background:var(--bg);position:relative;z-index:3}
   .lg-box{gap:12px}.lg-box h2{font-size:22px}
@@ -1114,13 +1114,14 @@ function applyBoot(b){
     if(first){S.f={unit:'all',mod:'all',per:'all',from:'',to:''};if(!location.hash||location.hash==='#')location.hash='#inicio'}
   }else{S.user=null;S.me=null;S.lgden=b.mode==='denied'?b.mail:'';location.hash=''}
 }
-var DATA_AT=0,DATA_BUSY=false;
+var DATA_AT=0,DATA_BUSY=false,DATA_RETRY=0;
 function loadData(fresh){if(!HOSTED||!S.me||DATA_BUSY)return;DATA_BUSY=true;rpc('data_load',{fresh:!!fresh},true)}
 function applyData(r){
   DATA_BUSY=false;DATA_AT=Date.now();S.dataErr=r.ok?'':(r.msg||'Não foi possível ler as planilhas.');S.dataProb=r.problems||[];
   if(!r.ok)return;
   Object.keys(r.groups||{}).forEach(function(k){if(MODS[k])MODS[k].groups=r.groups[k]});
   ONGOING.length=0;(r.ongoing||[]).forEach(function(o){if(MODS[o.form])ONGOING.push({mod:o.form,unit:o.unit,since:o.atualizado_em,pct:o.pct,codigo:o.codigo,resp:o.resp,feitos:o.feitos,total:o.total})});
+  if(r.ongoing_err&&(DATA_RETRY||0)<3){DATA_RETRY=(DATA_RETRY||0)+1;setTimeout(function(){loadData(true)},2500+DATA_RETRY*2500)}else if(!r.ongoing_err)DATA_RETRY=0;
   PLANS=r.plans||{};PLAN_EDIT=r.plan_edit||[];
   VISITS.length=0;var seen={};
   r.visits.forEach(function(v){VISITS.push({id:v.id,mod:v.mod,unit:v.unit,date:v.date,resp:v.resp,items:v.items})});
