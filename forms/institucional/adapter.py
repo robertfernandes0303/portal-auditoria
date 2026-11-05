@@ -1,9 +1,13 @@
 """Ponte entre o portal e o formulário Institucional (ver core/forms_api.py)."""
+import base64
+import binascii
 import threading
 from datetime import datetime
 from core.api import Rejected
 from core.forms_api import safe
-from . import logic as lg, sheets_backend as be
+from . import logic as lg, schema as sc, sheets_backend as be, evidencias as ev
+
+MAX_B64 = 18 * 1024 * 1024  # ~13 MB binário (PDF até 10 MB; fotos já chegam reduzidas)
 
 
 def _mapping(ctx):
@@ -25,7 +29,7 @@ def handle(ctx, act, pl):
     be._carregar_mapeamento = lambda: m  # o backend original lê o cadastro do portal, não um JSON em disco
     if act == "form_open":
         bruto = be.carregar_rascunho(unidade)
-        base = {"kind": "form_open", "ok": True, "form": "aud", "unit": unidade, "catalogo": lg.catalogo()}
+        base = {"kind": "form_open", "ok": True, "form": "aud", "unit": unidade, "catalogo": lg.catalogo(), "config": lg.config()}
         if bruto == be.ERRO_VERIFICACAO_RASCUNHO:
             return {**base, "estado": "erro_verificacao"}
         d = (bruto or {}).get("dados") or {}
@@ -36,6 +40,24 @@ def handle(ctx, act, pl):
         dados = pl.get("dados") or {}
         threading.Thread(target=lambda: safe(be.salvar_rascunho, unidade, dados), daemon=True).start()
         return {"kind": "form_save", "ok": True}
+    if act == "form_upload":
+        b64 = str(pl.get("b64") or "")
+        if len(b64) > MAX_B64:
+            return {"kind": "form_upload", "form": "aud", "ok": False, "num": pl.get("num"), "msg": "Arquivo muito grande."}
+        try:
+            dados_b = base64.b64decode(b64, validate=True)
+        except (binascii.Error, ValueError):
+            return {"kind": "form_upload", "form": "aud", "ok": False, "num": pl.get("num"), "msg": "Arquivo inválido."}
+        num = int(pl.get("num"))
+        itens_ok = {i["num"] for s in lg.catalogo() if s["tipo"] != "quantidade" for i in s["itens"]}
+        if num not in itens_ok:
+            raise Rejected("Item inválido.")
+        sessao, pasta = be.drive_para_evidencias()
+        try:
+            info = ev.guardar_evidencia(sessao, pasta, str(pl.get("codigo")), num, str(pl.get("nome") or "arquivo"), dados_b)
+        except ev.EvidenciaErro as exc:
+            return {"kind": "form_upload", "form": "aud", "ok": False, "num": num, "msg": f"{pl.get('nome')}: {exc}"}
+        return {"kind": "form_upload", "form": "aud", "ok": True, "num": num, "anexo": info}
     if act == "form_submit":
         dados = pl.get("dados") or {}
         try:

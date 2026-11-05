@@ -101,13 +101,13 @@ class UploadAppsScript:
     """Envia o arquivo a um Web App do Google Apps Script (publicado pelo dono da pasta),
     que o grava no Drive dele. Evita OAuth e cota de conta de servico."""
 
-    def __init__(self, url, token):
-        self.url, self.token = url, token
+    def __init__(self, url, token, pasta_pai=""):
+        self.url, self.token, self.pasta_pai = url, token, pasta_pai
 
     def enviar(self, codigo, nome, dados, mime):
         import base64
         import requests
-        payload = {"token": self.token, "pasta": codigo, "nome": nome, "mime": mime,
+        payload = {"token": self.token, "pasta_pai": self.pasta_pai, "pasta": codigo, "nome": nome, "mime": mime,
                    "dados_b64": base64.b64encode(dados).decode("ascii")}
         r = requests.post(self.url, data=json.dumps(payload), headers={"Content-Type": "text/plain;charset=utf-8"},
                           timeout=120, allow_redirects=True)

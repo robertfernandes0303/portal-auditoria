@@ -487,6 +487,7 @@ COLUNAS_VISITA = [
     "Total Não se Aplica",
     "Total Não Preenchido",
     "Percentual de Conformidade",
+    "Total de Anexos",
 ]
 
 # ---------------------------------------------------------------------------
@@ -505,7 +506,17 @@ COLUNAS_ITEM = [
     "Resposta",
     "Observações / Evidências",
     "Respondido em",
+    "Qtde de Anexos",
+    "Links dos Anexos",
 ]
+
+# Limites de anexo (evidência) — mesmos da Visita Técnica
+EXTENSOES_PERMITIDAS = ["jpg", "jpeg", "png", "pdf"]
+MAX_ANEXOS_POR_ITEM = 20
+MAX_MB_IMAGEM_ENTRADA = 20
+MAX_MB_PDF = 10
+LADO_MAX_IMAGEM_PX = 1600
+QUALIDADE_JPEG = 80
 
 
 def slug_unidade(unidade: str) -> str:

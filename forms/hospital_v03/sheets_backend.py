@@ -137,7 +137,7 @@ def drive_para_evidencias():
     cfg = _config_upload_apps_script()
     if cfg and cfg.get("url") and cfg.get("token"):
         from .evidencias import UploadAppsScript
-        return UploadAppsScript(cfg["url"], cfg["token"]), pasta
+        return UploadAppsScript(cfg["url"], cfg["token"], pasta), pasta
     if _tem_credencial():
         return _obter_cliente().http_client.session, pasta
     return None, None

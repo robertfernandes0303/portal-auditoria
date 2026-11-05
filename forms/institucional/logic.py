@@ -5,6 +5,29 @@ from .schema import (CONFORME, NAO_CONFORME, NAO_SE_APLICA, OPCOES_CHECKLIST, SE
                      agora_brasilia, gerar_codigo_visita)
 
 
+def config():
+    from . import schema as sc
+    return {"max_anexos": sc.MAX_ANEXOS_POR_ITEM, "ext": sc.EXTENSOES_PERMITIDAS, "max_pdf_mb": sc.MAX_MB_PDF}
+
+
+def _anexos(dados):
+    """{num: [anexo,...]} — só campos conhecidos; só itens de checklist (não os de quantidade)."""
+    out = {}
+    for k, lst in (dados.get("anexos") or {}).items():
+        try:
+            n = int(k)
+        except (TypeError, ValueError):
+            continue
+        ok = []
+        for a in (lst or [])[:20]:
+            if isinstance(a, dict) and a.get("nome"):
+                ok.append({"nome": str(a.get("nome"))[:120], "link": str(a.get("link") or "")[:300],
+                           "tamanho_kb": a.get("tamanho_kb", 0), "id_arquivo": str(a.get("id_arquivo") or "")[:80]})
+        if ok:
+            out[n] = ok
+    return out
+
+
 def catalogo():
     return [{"nome": s["nome"], "tipo": s["tipo"],
              "itens": [{"num": i["num"], "texto": i["texto"], "tipo_resposta": i.get("tipo_resposta", "checklist")} for i in s["itens"]]}
@@ -69,6 +92,8 @@ def montar_registros(unidade, dados, agora=None):
     """Retorna (registro_visita, itens_registro, resumo, secoes_pendentes)."""
     agora = agora or agora_brasilia()
     resp, vals = limpar(dados)
+    anx = _anexos(dados)
+    total_anx = 0
     codigo = dados.get("codigo_visita") or gerar_codigo_visita(unidade)
     data_visita = str(dados["data_visita"])
     itens, conf, nconf, naplica, nprench = [], 0, 0, 0, 0
@@ -88,7 +113,12 @@ def montar_registros(unidade, dados, agora=None):
             itens.append({"Código da Visita": codigo, "Unidade": unidade, "Data da Visita": data_visita, "Seção": secao["nome"],
                           "Nº do Item": item["num"], "Item de Verificação": item["texto"], "Tipo de Campo": tipo,
                           "Resposta": resposta, "Observações / Evidências": obs,
-                          "Respondido em": agora.strftime("%d/%m/%Y %H:%M:%S")})
+                          "Respondido em": agora.strftime("%d/%m/%Y %H:%M:%S"),
+                          "Qtde de Anexos": len(anx.get(item["num"], [])) if secao["tipo"] != "quantidade" else 0,
+                          "Links dos Anexos": " | ".join(f"{a['nome']} <{a['link']}>" if a["link"] else a["nome"]
+                                                         for a in anx.get(item["num"], [])) if secao["tipo"] != "quantidade" else ""})
+            if secao["tipo"] != "quantidade":
+                total_anx += len(anx.get(item["num"], []))
     aval = conf + nconf
     pct = f"{(conf / aval * 100):.1f}%" if aval else ""
     visita = {"Código da Visita": codigo, "Unidade": unidade, "Data da Visita": data_visita,
@@ -97,7 +127,7 @@ def montar_registros(unidade, dados, agora=None):
               "Fim do Preenchimento (Envio)": agora.strftime("%d/%m/%Y %H:%M:%S"),
               "Status da Visita": "Incompleta" if nprench else "Completa", "Total de Itens Aplicáveis": aval,
               "Total Conforme": conf, "Total Não Conforme": nconf, "Total Não se Aplica": naplica,
-              "Total Não Preenchido": nprench, "Percentual de Conformidade": pct}
+              "Total Não Preenchido": nprench, "Percentual de Conformidade": pct, "Total de Anexos": total_anx}
     st = status_secoes(resp, vals, set(dados.get("secoes_visitadas") or []), set(dados.get("secoes_concluidas") or []))
     pend = [n for n, s in st.items() if s != "completa"]
     resumo = {"conforme": conf, "nao_conforme": nconf, "nao_aplica": naplica, "nao_preenchido": nprench, "percentual": pct}

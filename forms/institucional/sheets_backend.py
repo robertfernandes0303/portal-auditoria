@@ -557,3 +557,32 @@ def apagar_rascunho(unidade: str):
         _apagar_rascunho_local(unidade)
     except Exception:
         pass
+
+
+def _config_upload_apps_script():
+    """Endpoint do Apps Script (grava no Drive do dono da pasta). GOOGLE_UPLOAD_JSON ou secrets [upload_drive]."""
+    bruto = os.environ.get("GOOGLE_UPLOAD_JSON")
+    if bruto:
+        return json.loads(bruto)
+    try:
+        import streamlit as st
+        if "upload_drive" in st.secrets:
+            return dict(st.secrets["upload_drive"])
+    except Exception:
+        pass
+    return None
+
+
+def drive_para_evidencias():
+    """(destino de upload, id da pasta) ou (None, None) => modo local de teste."""
+    mapping = _carregar_mapeamento()
+    pasta = mapping.get("pasta_evidencias") or mapping.get("pasta_visita_consolidado") or ""
+    if not pasta or str(pasta).startswith(PREFIXO_PLACEHOLDER):
+        return None, None
+    cfg = _config_upload_apps_script()
+    if cfg and cfg.get("url") and cfg.get("token"):
+        from .evidencias import UploadAppsScript
+        return UploadAppsScript(cfg["url"], cfg["token"], pasta), pasta
+    if _credenciais_disponiveis(mapping):
+        return _obter_cliente_gspread().http_client.session, pasta
+    return None, None
