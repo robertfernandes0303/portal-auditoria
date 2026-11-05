@@ -203,7 +203,16 @@ def _obter_ou_criar_aba(planilha, titulo, colunas):
     import gspread
 
     try:
-        return planilha.worksheet(titulo)
+        aba = planilha.worksheet(titulo)
+        # Planilhas antigas: cabeçalho com coluna a mais ("Município", que as linhas nunca tiveram) ou sem as colunas novas
+        # de anexos. As linhas já gravadas seguem a ordem do esquema atual, então só o cabeçalho é regravado.
+        if titulo in (ABA_VISITAS, ABA_ITENS):
+            atual = aba.row_values(1)
+            if atual != list(colunas):
+                if aba.col_count < len(colunas):
+                    aba.add_cols(len(colunas) - aba.col_count)
+                aba.update(range_name="A1", values=[list(colunas)])
+        return aba
     except gspread.exceptions.WorksheetNotFound:
         aba = planilha.add_worksheet(title=titulo, rows=1000, cols=len(colunas) + 2)
         aba.append_row(colunas, value_input_option="USER_ENTERED")

@@ -78,17 +78,37 @@ def _ler_local(form):
     return [(vis, itens)]
 
 
+def _df(valores, form=None, tab=""):
+    """Tabela a partir de get_all_values (posicional). Planilhas antigas do Institucional têm 'Município' no cabeçalho de
+    Visitas, mas as linhas nunca tiveram essa coluna: remove-a do cabeçalho para os valores caírem nas colunas certas."""
+    import pandas as pd
+    if not valores:
+        return pd.DataFrame()
+    cab = [str(c).strip() for c in valores[0]]
+    if form == "aud" and tab == "Visitas" and "Município" in cab:
+        cab.remove("Município")
+    linhas = []
+    for r in valores[1:]:
+        r = list(r) + [""] * (len(cab) - len(r))
+        linhas.append(r[:len(cab)])
+    return pd.DataFrame(linhas, columns=cab).astype(str)
+
+
 def _ler_google(form, ref):
     import pandas as pd
     tabs = FORMS[form]["tabs"]
 
-    def go():
-        v = pd.DataFrame(drive.open_spreadsheet(ref).worksheet(tabs["visitas"]).get_all_records()).astype(str)
+    def aba(planilha, nome):
         try:
-            i = pd.DataFrame(drive.open_spreadsheet(ref).worksheet(tabs["itens"]).get_all_records()).astype(str)
-        except Exception:
-            i = pd.DataFrame()
-        return v, i
+            return _df(planilha.worksheet(nome).get_all_values(), form, nome)
+        except Exception as e:
+            if e.__class__.__name__ == "WorksheetNotFound":
+                return pd.DataFrame()       # formulário ainda não gravou nenhuma visita: vazio, não é erro
+            raise
+
+    def go():
+        pl = drive.open_spreadsheet(ref)
+        return aba(pl, tabs["visitas"]), aba(pl, tabs["itens"])
     return _cached((form, ref), go)
 
 
@@ -193,9 +213,12 @@ def load(store, mail):
     vistos, final = set(), []
     for v in visits:
         k = (v["mod"], v["id"])
-        if k in vistos or v["unit"] not in nomes:
+        if k in vistos:
             continue
-        if not ctx.is_global and v["unit"] not in ctx.allowed:
+        if FORMS[v["mod"]].get("free"):          # hospital/UPA em licitação: sem cadastro, só perfis globais
+            if not ctx.is_global:
+                continue
+        elif v["unit"] not in nomes or (not ctx.is_global and v["unit"] not in ctx.allowed):
             continue
         vistos.add(k)
         final.append(v)

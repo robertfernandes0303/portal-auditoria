@@ -23,3 +23,32 @@ def test_visitas_enf():
     v = readers._visitas_de("enf", vis, itens, cat)[0]
     assert v["unit"] == "Juína" and v["date"] == "2026-10-30" and len(v["items"]) == 43
     assert v["items"][0]["s"] == "NC" and v["items"][0]["ev"] == 2 and v["items"][1]["s"] == "NA"
+
+
+def test_df_planilha_antiga_com_municipio_e_aba_ausente():
+    """Auditoria_Consolidado antigo: cabeçalho tem 'Município', as linhas não -> valores devem cair nas colunas certas."""
+    cab = ["Código da Visita", "Unidade", "Município", "Data da Visita", "Responsável pela Visita", "Nome de Quem Acompanhou",
+           "Início do Preenchimento", "Fim do Preenchimento (Envio)", "Status da Visita", "Total de Itens Aplicáveis",
+           "Total Conforme", "Total Não Conforme", "Total Não se Aplica", "Total Não Preenchido", "Percentual de Conformidade"]
+    lin = ["AUD-X", "Aripuanã", "22/09/2026", "Litana", "Dayane", "22/09/2026 14:12:54", "25/09/2026 12:24:50", "Completa", "226", "169", "57", "15", "0", "74.8%"]
+    df = readers._df([cab, lin], "aud", "Visitas")
+    r = df.iloc[0]
+    assert r["Data da Visita"] == "22/09/2026" and r["Responsável pela Visita"] == "Litana" and r["Percentual de Conformidade"] == "74.8%"
+    assert r["Total Conforme"] == "169" and r["Total Não Conforme"] == "57"
+    assert readers._df([], "aud", "Visitas").empty
+
+
+def test_load_visita_tecnica_livre_so_global(monkeypatch):
+    import pandas as pd
+    from core import readers as rd
+    vis = pd.DataFrame([{"Código da Visita": "VT-1", "Hospital": "Hospital Júlio", "Data da Visita": "13/10/2026", "Responsável pela Visita": "Natasha"}])
+    class U:  # store mínimo
+        def __init__(s, role): s.role = role
+    class St:
+        def __init__(s, role): s.role = role; s.data = {"units": [], "connections": {}}
+        def user_by_mail(s, m): return {"role": s.role, "active": True, "scope": "all" if s.role in ("admin", "resp") else "sel", "units": []}
+        def units(s, only_active=True): return []
+    monkeypatch.setattr(rd, "_fontes", lambda store, form, problems: [(vis, pd.DataFrame())] if form == "v03" else [])
+    monkeypatch.setattr(rd.perms, "allowed_unit_ids", lambda store, user: []) if hasattr(rd, "perms") else None
+    assert [v["unit"] for v in rd.load(St("admin"), "a@b")["visits"]] == ["Hospital Júlio"]
+    assert rd.load(St("gestor"), "a@b")["visits"] == []
