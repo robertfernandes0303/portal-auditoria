@@ -665,7 +665,7 @@ function viewHome(){
   var hasOg=ONGOING.some(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))});
   var ongS='<section class="card ongs"><h2>Visitas em andamento'+(HOSTED?' ('+ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))}).length+')':'')+'</h2><p class="sub">'+(HOSTED?'Estas visitas ainda não foram enviadas. Toque em Continuar para voltar exatamente de onde parou.':'Retome de onde parou. O formulário abre em uma nova aba.')+'</p><div class="list ong">'+og+'</div>'+(HOSTED&&ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))}).length>5?'<button class="btn line" style="margin-top:10px;width:100%" data-act="ogall">'+(S.ogall?'Mostrar só as 5 mais recentes':'Mostrar todas as '+ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))}).length+' visitas')+'</button>':'')+'</section>';
   return '<div class="head"><div><h1>Olá, '+r.user.split(' ')[0]+'</h1><p>'+r.desc+' '+(us.length===1?'Unidade: '+us[0]+'.':'')+'</p></div>'+(canNew()?'<a class="btn" href="#nova">'+ic('plus')+'Nova visita</a>':'')+'</div>'+
-  (hasOg?ongS:'')+(cards?'<div class="grid g3">'+cards+'</div>':'')+(!hasOg&&!cards?'<div class="empty">Nenhuma visita registrada neste filtro.</div>':'')
+  (hasOg?ongS:(HOSTED&&!S.ongLoaded?'<section class="card ongs"><h2>Visitas em andamento</h2><p class="note" role="status">Carregando visitas em andamento…</p></section>':(HOSTED&&S.ongErr?'<section class="card ongs"><h2>Visitas em andamento</h2><p class="note" role="alert" style="color:var(--bad-ink);font-weight:700">Não foi possível ler as visitas em andamento agora.</p><button class="btn line" data-act="ongretry">Tentar de novo</button></section>':'')))+(cards?'<div class="grid g3">'+cards+'</div>':'')+(!hasOg&&!cards?'<div class="empty">Nenhuma visita registrada neste filtro.</div>':'')
 }
 
 function curU(){return USERS.filter(function(u){return u.id===S.pe.id})[0]}
@@ -1086,6 +1086,7 @@ document.addEventListener('click',function(e){
     else if(act==='ppdel'){var dk=S.pp.id;delete ROLES[dk];delete PERFIL[dk];persist();S.pp={id:null,mode:null,draft:null};S.ppconf=null;S.pemsg='Perfil excluído (simulação).';render()}
     else if(act==='nvmod'){S.nv.mod=a.dataset.v;render()}
     else if(act==='logout'){if(HOSTED){flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
+    else if(act==='ongretry'){S.ongErr=false;S.ongLoaded=false;DATA_RETRY=0;loadOngoing(true);render()}
     else if(act==='pexp'){S.pexp[a.dataset.u]=!S.pexp[a.dataset.u];var y6=window.scrollY;render();window.scrollTo(0,y6)}
     else if(act==='lgreset'){e.preventDefault();S.lg='reset';render()}
     else if(act==='lgback'){e.preventDefault();S.lg='login';render()}
@@ -1185,15 +1186,18 @@ function applyBoot(b){
     S.me={user:m.name,mail:m.mail,label:m.label,desc:m.desc,units:m.scope==='all'?null:m.units.slice(),scope:m.scope,screens:m.screens.slice()};
     S.user=m.name;S.lgerr='';S.lgden='';if(!DATA_AT)setTimeout(function(){loadData(false)},50);
     if(first){S.f={unit:'all',mod:'all',per:'all',from:'',to:''};if(!location.hash||location.hash==='#')location.hash='#inicio'}
-  }else{S.user=null;S.me=null;S.lgden=b.mode==='denied'?b.mail:'';location.hash=''}
+  }else{S.user=null;S.me=null;S.ongLoaded=false;S.ongErr=false;ONGOING.length=0;S.lgden=b.mode==='denied'?b.mail:'';location.hash=''}
 }
 var DATA_AT=0,DATA_BUSY=false,DATA_RETRY=0;
 function loadData(fresh){if(!HOSTED||!S.me||DATA_BUSY)return;DATA_BUSY=true;window.__fresh=!!fresh;rpc('data_load',{fresh:!!fresh},true)}
 function loadOngoing(fresh){if(!HOSTED||!S.me)return;rpc('ongoing_load',{fresh:!!fresh},true)}
 function applyOngoing(r){
-  if(!r.ok)return;
+  S.ongLoaded=true;
+  if(!r.ok){S.ongErr=true;if(HOSTED)render();return}
+  S.ongErr=!!r.ongoing_err;
+  if(r.ongoing_err&&!(r.ongoing||[]).length&&ONGOING.length){if(HOSTED)render();if((DATA_RETRY||0)<3){DATA_RETRY=(DATA_RETRY||0)+1;setTimeout(function(){loadOngoing(true)},2500+DATA_RETRY*2500)}return}
   ONGOING.length=0;(r.ongoing||[]).forEach(function(o){if(MODS[o.form])ONGOING.push({mod:o.form,unit:o.unit,since:o.atualizado_em,pct:o.pct,codigo:o.codigo,resp:o.resp,feitos:o.feitos,total:o.total})});
-  if(r.ongoing_err&&(DATA_RETRY||0)<3){DATA_RETRY=(DATA_RETRY||0)+1;setTimeout(function(){loadOngoing(true)},2500+DATA_RETRY*2500)}else if(!r.ongoing_err)DATA_RETRY=0}
+  if(r.ongoing_err&&(DATA_RETRY||0)<3){DATA_RETRY=(DATA_RETRY||0)+1;setTimeout(function(){loadOngoing(true)},2500+DATA_RETRY*2500)}else if(!r.ongoing_err)DATA_RETRY=0;if(HOSTED)render()}
 function applyData(r){
   DATA_BUSY=false;DATA_AT=Date.now();S.dataErr=r.ok?'':(r.msg||'Não foi possível ler as planilhas.');S.dataProb=r.problems||[];
   if(!r.ok)return;
