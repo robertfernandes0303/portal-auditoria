@@ -609,7 +609,7 @@ function unitSel(){
   var su=scopeUnits(), single=su.length===1;
   if(single)return select('f-unit','Unidade',[[su[0],su[0]]],S.f.unit,true);
   var a=fu().filter(function(u){return su.indexOf(u)>-1}),lab=a.length===0?'Todas as unidades':a.length===1?a[0]:a.length+' unidades';
-  return '<div class="sel msel"><label>Unidades</label><details id="f-units"'+(S.fuopen?' open':'')+'><summary class="cbi">'+esc(lab)+'</summary><div class="mpop"><div class="mact"><button type="button" class="btn line" data-act="fu-all">Marcar todas</button><button type="button" class="btn line" data-act="fu-none">Limpar</button></div><p class="note" style="margin:6px 0">Sem nenhuma marcada, o painel mostra todas as unidades.</p>'+
+  return '<div class="sel msel"><label>Unidades</label><details id="f-units"'+(S.fuopen?' open':'')+'><summary class="cbi">'+esc(lab)+'</summary><div class="mpop"><div class="mact"><button type="button" class="btn line" data-act="fu-all">Marcar todas</button><button type="button" class="btn" data-act="fu-close">Filtrar</button><button type="button" class="btn line" data-act="fu-none">Limpar</button></div><p class="note" style="margin:6px 0">Sem nenhuma marcada, o painel mostra todas as unidades.</p>'+
    su.map(function(u,i){return '<label class="mck"><input type="checkbox" data-bind="f-unitc" data-u="'+esc(u)+'"'+(a.indexOf(u)>-1?' checked':'')+'> <span>'+esc(u)+'</span></label>'}).join('')+'</div></details></div>'
 }
 function fsum(){return '<span>Unidade: <b>'+(fu().length===0?'Todas':fu().length===1?esc(fu()[0]):fu().length+' unidades')+'</b></span><span>Período: <b>'+perLabel().replace(/^./,function(c){return c.toUpperCase()})+'</b></span><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'}
@@ -1096,6 +1096,7 @@ document.addEventListener('click',function(e){
     else if(act==='report'){S.rep=a.dataset.id;var y3=window.scrollY;render();window.scrollTo(0,y3)}
     else if(act==='vmod'){S.vm=a.dataset.v;var y8=window.scrollY;render();window.scrollTo(0,y8)}
     else if(act==='cedit'){S.cf=a.dataset.f;S.q=a.dataset.u==='__consolidado__'?'':a.dataset.u;render();var ce=document.getElementById('conn-edit');if(ce)ce.scrollIntoView({block:'start'})}
+    else if(act==='fu-close'){closeUnits()}
     else if(act==='fu-all'){fuSet(scopeUnits().slice());S.fuopen=false;var yz=window.scrollY;render();window.scrollTo(0,yz)}
     else if(act==='fu-none'){fuSet([]);S.fuopen=false;var yy=window.scrollY;render();window.scrollTo(0,yy)}
     else if(act==='pf'){S.pf=a.dataset.v;var y=window.scrollY;render();window.scrollTo(0,y)}
@@ -1365,7 +1366,8 @@ document.addEventListener('click',function(e){
   if(act==='psave'){if(S.pbusy)return;S.pbusy=true;S.pmsg='';var pl=Object.assign({},S.pedx,S.pedd);rpc('plan_save',pl);render();window.scrollTo(0,y)}
 },true);
 function closeUnits(){S.fuopen=false;var d=document.getElementById('f-units');if(d&&d.open)d.open=false}
-document.addEventListener('pointerdown',function(e){if(!S.fuopen)return;var t=e.target;if(t&&t.closest&&t.closest('#f-units'))return;closeUnits()},true);
+function outsideUnits(e){var d=document.getElementById('f-units');if(!d||!d.open&&!S.fuopen)return;var t=e.target;if(t&&t.closest&&t.closest('#f-units'))return;closeUnits()}
+['pointerdown','mousedown','touchstart','click','focusin'].forEach(function(n){document.addEventListener(n,outsideUnits,true)});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&S.fuopen){closeUnits();var sm=document.querySelector('#f-units > summary');if(sm)sm.focus()}},true);
 window.addEventListener('blur',function(){if(S.fuopen)closeUnits()});
 document.addEventListener('toggle',function(e){var t=e.target;if(!t)return;if(t.id==='f-units')S.fuopen=t.open;else if(t.classList&&t.classList.contains('fbar')&&window.innerWidth<=640)S.fbopen=t.open},true);
