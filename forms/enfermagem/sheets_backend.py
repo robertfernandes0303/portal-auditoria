@@ -425,6 +425,11 @@ def _limpar_cache_rascunho():
 def _aba_rascunho():
     if _CACHE_RASC["aba"] is None:
         aba = _aba(_abrir_planilha(), ABA_RASCUNHO, COLUNAS_RASCUNHO)
+        try:                                           # cabecalho apagado => append deslocaria os dados para a coluna B
+            if not (aba.acell("A1").value or "").strip():
+                aba.update("A1", [list(COLUNAS_RASCUNHO)], value_input_option=RAW)
+        except Exception:
+            pass
         precisa = len(COLUNAS_RASCUNHO) - 1 + BLOCOS_RASCUNHO
         if getattr(aba, "col_count", precisa) < precisa:
             aba.add_cols(precisa - aba.col_count)
@@ -471,7 +476,7 @@ def _gravar_rascunho_google(codigo, hospital, responsavel, dados, agora):
                 aba.update(f"A{idx}:{rowcol_to_a1(idx, len(linha))}", [linha], value_input_option=RAW)
                 _CACHE_RASC["linhas"][codigo] = (idx, time.time())
             else:
-                resp = aba.append_row(linha, value_input_option=RAW)
+                resp = aba.append_row(linha, value_input_option=RAW, table_range="A1")
                 try:
                     rng = resp["updates"]["updatedRange"]          # ex.: Rascunho!A7:F7
                     novo_idx = int("".join(c for c in rng.split("!")[1].split(":")[0] if c.isdigit()))
