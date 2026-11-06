@@ -37,6 +37,8 @@ def build_boot(store, mail, version, flags, mode_hint=None):
     boot["me"] = {"name": user["name"], "mail": user["mail"], "role": user["role"], "label": p["label"], "desc": p.get("desc", ""),
                   "scope": "all" if user["role"] == "admin" or user.get("scope") == "all" else "sel",
                   "units": _names(store, allowed), "screens": scr}
+    boot["must_change"] = bool(store.must_change(mail)) and bool(flags.get("password"))
+    boot["admins_ativos"] = len(store.admins_active()) if user["role"] == "admin" else 0
     admin_view = "perm" in scr or "conn" in scr
     boot["units"] = [dict(u) for u in store.data["units"]] if "conn" in scr else \
         [dict(u) for u in store.data["units"] if u["id"] in allowed]

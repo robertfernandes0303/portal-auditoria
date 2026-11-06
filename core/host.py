@@ -36,7 +36,9 @@ def run():
         ss["last_rpc"] = req["id"]
         act, pl = req.get("action"), req.get("payload") or {}
         mail = auth.current_mail()
-        if act == "login":
+        if mail and settings.password_login_enabled() and store.must_change(mail) and act not in ("change_password", "logout", "pw_login", "pw_resume", "login", "save_noop"):
+            reply = {"kind": act, "ok": False, "must_change": True, "msg": "Defina uma nova senha para continuar."}
+        elif act == "login":
             if settings.auth_configured():
                 st.login("microsoft")
             else:
@@ -107,6 +109,25 @@ def run():
                 reply = {"kind": "ongoing_load", "ok": True, "ongoing": _on, "ongoing_err": bool(_err)}
             except Exception as e:
                 reply = {"kind": "ongoing_load", "ok": False, "msg": str(e)[:160]}
+        elif act == "change_password" and settings.password_login_enabled():
+            import time
+            from core import sessions
+            fails = [t for t in ss.get("pw_fails", []) if time.time() - t < 300]
+            if not mail:
+                reply = {"kind": act, "ok": False, "msg": "Entre novamente para alterar a senha."}
+            elif len(fails) >= 5:
+                reply = {"kind": act, "ok": False, "msg": "Muitas tentativas. Aguarde alguns minutos."}
+            else:
+                ok, msg = store.trocar_senha(mail, str(pl.get("current") or ""), str(pl.get("new") or ""))
+                if ok:
+                    store.log(mail, "Alterou a própria senha")
+                    store.save()
+                    ss["pw_fails"] = []
+                    ss["ver"] += 1
+                    reply = {"kind": act, "ok": True, "msg": msg, "token": sessions.emitir(store, mail.strip().lower(), settings.secret)}
+                else:
+                    ss["pw_fails"] = fails + [time.time()]
+                    reply = {"kind": act, "ok": False, "msg": msg}
         elif act in ("set_password", "remove_password"):
             who = store.user_by_mail(mail)
             alvo = str(pl.get("mail") or "").strip().lower()
@@ -119,13 +140,15 @@ def run():
                 if len(senha) < 8:
                     reply = {"kind": act, "ok": False, "msg": "A senha precisa ter pelo menos 8 caracteres."}
                 else:
-                    store.set_password(alvo, senha)
-                    store.log(mail, f"Definiu senha de acesso de {alvo}")
+                    propria = alvo == (mail or "").strip().lower()
+                    store.set_password(alvo, senha, temporaria=not propria)
+                    store.log(mail, f"Definiu senha de acesso de {alvo}" + ("" if propria else " (temporária: troca obrigatória no próximo acesso)"))
                     store.save()
                     ss["ver"] += 1
                     reply = {"kind": act, "ok": True, "mail": alvo, "msg": "Senha definida."}
             else:
                 store.data["credentials"].pop(alvo, None)
+                store.data["must_change"] = [x for x in store.data.get("must_change", []) if x != alvo]
                 store.log(mail, f"Removeu a senha de acesso de {alvo}")
                 store.save()
                 ss["ver"] += 1

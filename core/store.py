@@ -22,6 +22,7 @@ def _defaults():
                    "scope": "all", "units": [], "ov": {}, "active": True, "fict": True}],
         "connections": {},
         "credentials": {},
+        "must_change": [],
         "audit": [],
         "plans": {},
     }
@@ -204,10 +205,32 @@ class Store:
         self.data["audit"] = ([{"ts": ts, "who": who, "what": what}] + self.data["audit"])[:200]
 
     # ---- credenciais (login por e-mail e senha)
-    def set_password(self, mail, senha):
+    def set_password(self, mail, senha, temporaria=False):
+        """temporaria=True: definida por um Administrador; a pessoa é obrigada a trocar no primeiro acesso."""
         from core import passwords
-        self.data["credentials"][mail.strip().lower()] = passwords.hash_senha(senha)
+        m = mail.strip().lower()
+        self.data["credentials"][m] = passwords.hash_senha(senha)
+        mc = [x for x in self.data.setdefault("must_change", []) if x != m]
+        if temporaria:
+            mc.append(m)
+        self.data["must_change"] = mc
         self.save()
+
+    def must_change(self, mail):
+        return (mail or "").strip().lower() in self.data.get("must_change", [])
+
+    def trocar_senha(self, mail, atual, nova):
+        """Troca feita pela própria pessoa. Devolve (ok, mensagem)."""
+        if not self.check_password(mail, atual):
+            return False, "A senha atual não confere."
+        if len(nova or "") < 8:
+            return False, "A nova senha precisa ter pelo menos 8 caracteres."
+        if nova == atual:
+            return False, "A nova senha precisa ser diferente da atual."
+        if (nova or "").strip().lower() == (mail or "").strip().lower():
+            return False, "A senha não pode ser igual ao e-mail."
+        self.set_password(mail, nova, temporaria=False)
+        return True, "Senha alterada."
 
     def check_password(self, mail, senha):
         from core import passwords

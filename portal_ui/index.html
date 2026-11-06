@@ -620,21 +620,20 @@ function periodSel(){
   if(S.f.per==='custom')h+='<div class="sel"><label for="f-from">De</label><input type="date" id="f-from" data-bind="f-from" value="'+(S.f.from||'')+'"></div><div class="sel"><label for="f-to">Até</label><input type="date" id="f-to" data-bind="f-to" value="'+(S.f.to||'')+'"></div>';
   return h
 }
-function resetForm(){return '<form class="lg-box" id="resetForm" autocomplete="off"><div><h2>Recuperar acesso</h2><p class="muted" style="margin-top:4px">Informe seu e-mail institucional ou usuário.</p></div>'+
-  '<div class="field"><label for="rs-user">E-mail ou usuário</label><input id="rs-user" type="text" placeholder="nome.sobrenome@isssl.com.br" autocomplete="username" inputmode="email" required></div>'+
-  '<button type="submit" class="btn">Enviar link de redefinição</button>'+
+function resetForm(){return '<div class="lg-box"><div><h2>Recuperar acesso</h2><p class="muted" style="margin-top:4px">A senha do portal é redefinida por um Administrador, para garantir que só você a conheça.</p></div>'+
+  '<ol class="muted" style="margin:0;padding-left:20px;display:grid;gap:6px"><li>Peça a redefinição à <b>Célula de Qualidade (CDQ)</b> ou a qualquer Administrador do portal.</li><li>Você recebe uma <b>senha temporária</b>.</li><li>Entre com ela: o portal pede para criar a <b>sua própria senha</b> na hora.</li></ol>'+
   '<div class="callout"><b>Entra com a conta Microsoft?</b><span>A senha é redefinida na própria Microsoft, não aqui.</span><a href="https://passwordreset.microsoftonline.com/" target="_blank" rel="noopener">Redefinir senha da conta Microsoft '+ic('ext')+'</a></div>'+
-  '<a href="#" data-act="lgback" class="lnk">Voltar ao login</a></form>'}
+  '<a href="#" data-act="lgback" class="btn">Voltar ao login</a></div>'}
 function sentView(){return '<div class="lg-box"><div class="okic">'+ic('task')+'</div><div><h2>Verifique seu e-mail</h2><p class="muted" style="margin-top:6px">Se houver cadastro para o e-mail ou usuário informado, enviamos um link para criar uma nova senha. O link tem validade limitada.</p></div>'+
   '<div class="callout"><b>Não chegou?</b><span>Confira a caixa de spam. Se o problema continuar, fale com o CDQ para liberar o acesso.</span></div><a href="#" data-act="lgback" class="btn">Voltar ao login</a></div>'}
 function viewLogin(){var h=viewLogin0();if(S.lg==='reset'||S.lg==='sent'){var i=h.indexOf('<section class="lg-form">');h=h.slice(0,i)+'<section class="lg-form">'+(S.lg==='reset'?resetForm():sentView())+'</section></div>'}return h}
 function viewConta(){
   var r=RL(), ini=r.user.split(' ').map(function(x){return x[0]}).join('');
-  return '<div class="head"><div><h1>Minha conta</h1><p>Seus dados de acesso e segurança.</p></div></div>'+
+  return '<div class="head"><div><h1>Minha conta</h1><p>Seus dados de acesso e segurança.</p></div></div>'+(S.mustChange?'<div class="nvinfo" role="alert" style="margin:0 0 12px"><b>Defina a sua senha para continuar.</b> A senha atual foi criada por um Administrador. Escolha uma nova senha só sua (mínimo de 8 caracteres). Depois disso o portal é liberado.</div>':'')+
   '<div class="grid g2"><section class="card"><div style="display:flex;gap:14px;align-items:center;margin-bottom:14px"><div class="av" style="width:52px;height:52px;font-size:18px">'+ini+'</div><div><b style="font-size:17px">'+r.user+'</b><div class="note">'+r.label+'</div></div></div>'+
-  '<div class="list"><div class="li"><span class="muted">Acesso a</span><b>'+(r.units?r.units.join(', '):'Todas as unidades')+'</b></div><div class="li"><span class="muted">Entrada pelo portal</span><b>Conta Microsoft</b></div></div>'+
+  '<div class="list"><div class="li"><span class="muted">Acesso a</span><b>'+(r.units?r.units.join(', '):'Todas as unidades')+'</b></div><div class="li"><span class="muted">Entrada pelo portal</span><b>'+(HOSTED&&CFG.flags.password&&PWSET.indexOf(String(BOOT.mail||'').toLowerCase())>-1?'E-mail e senha':'Conta Microsoft')+'</b></div></div>'+
   '<button class="btn line" style="margin-top:14px" data-act="logout">'+ic('out')+'Sair do portal</button></section>'+
-  '<section class="card"><h2>Alterar senha</h2><p class="sub">Para quem entra com usuário e senha do portal.</p><form id="pwForm" class="lg-box" style="max-width:none" autocomplete="off"><div class="field"><label for="pw0">Senha atual</label><input id="pw0" type="password" autocomplete="current-password" required></div><div class="field"><label for="pw1">Nova senha</label><input id="pw1" type="password" autocomplete="new-password" minlength="8" required><span class="note">Mínimo de 8 caracteres.</span></div><div class="field"><label for="pw2">Confirmar nova senha</label><input id="pw2" type="password" autocomplete="new-password" required></div><button class="btn" type="submit">Salvar nova senha</button><p class="note" id="pwMsg" role="status" aria-live="polite"></p></form>'+
+  '<section class="card"><h2>Alterar senha</h2><p class="sub">Para quem entra com usuário e senha do portal.</p><form id="pwForm" class="lg-box" style="max-width:none" autocomplete="off"><div class="field"><label for="pw0">Senha atual</label><input id="pw0" type="password" autocomplete="current-password" required></div><div class="field"><label for="pw1">Nova senha</label><input id="pw1" type="password" autocomplete="new-password" minlength="8" required><span class="note">Mínimo de 8 caracteres.</span></div><div class="field"><label for="pw2">Confirmar nova senha</label><input id="pw2" type="password" autocomplete="new-password" required></div>'+(S.pwself?'<p class="note" role="status" style="font-weight:700;margin:0 0 8px">'+esc(S.pwself)+'</p>':'')+'<button class="btn" type="submit">Salvar nova senha</button><p class="note" id="pwMsg" role="status" aria-live="polite"></p></form>'+
   '<div class="callout" style="margin-top:12px"><b>Entra com a conta Microsoft?</b><span>Sua senha é gerenciada pela Microsoft.</span><a href="https://mysignins.microsoft.com/security-info/password/change" target="_blank" rel="noopener">Alterar senha na Microsoft '+ic('ext')+'</a></div></section></div>'
 }
 function filtersBar(r){return '<details class="fbar"'+(window.innerWidth>640||S.fbopen?' open':'')+'><summary>'+fsum()+'</summary><div class="top">'+unitSel()+periodSel()+'<span class="sp"></span><span class="chip">'+r.label+(r.units?' · '+r.units.join(', '):'')+'</span><span class="chip demo">Dados fictícios</span></div></details>'}
@@ -684,6 +683,8 @@ function viewPerm(){
   var q=(S.q||'').toLowerCase(), pe=S.pe, u=curU(); var msgNow=S.pemsg; S.pemsg=null;
   var tabs='<div class="seg" role="tablist" style="margin:0 0 14px"><button data-act="ptab" data-v="users" aria-pressed="'+(S.pt==='users')+'">Usuários ('+USERS.length+')</button><button data-act="ptab" data-v="profiles" aria-pressed="'+(S.pt==='profiles')+'">Perfis ('+Object.keys(ROLES).length+')</button></div>';
   var msg=msgNow?'<div class="nvinfo" role="status" style="margin:0 0 12px">'+msgNow+'</div>':'';
+  var nad=USERS.filter(function(u){return u.role==='admin'&&!u.fict}).length;
+  if(HOSTED&&nad<2)msg+='<div class="nvinfo" role="alert" style="margin:0 0 12px"><b>Só há '+nad+' Administrador real cadastrado.</b> Cadastre ao menos mais um (por exemplo, outra pessoa da CDQ) para que a redefinição de senhas e o acesso ao portal nunca dependam de uma só pessoa.</div>';
   if(S.pt==='profiles')return viewPerfis(tabs,msg);
   var list=USERS.filter(function(x){return !q||(x.name+' '+x.mail).toLowerCase().indexOf(q)>-1}).map(function(x){
     var ini=x.name.split(' ').map(function(w){return w[0]}).slice(0,2).join(''), cust=Object.keys(x.ov).length>0;
@@ -1002,6 +1003,7 @@ function render(){
   var root=document.getElementById('root'), h=route();
   if(HOSTED&&!BOOT){root.innerHTML='<div class="login" style="place-items:center;display:grid"><p class="note">Carregando…</p></div>';return}
   if(!S.user){root.innerHTML=S.resuming?'<div class="login" style="place-items:center;display:grid"><p class="note" role="status">Entrando…</p></div>':real(viewLogin());return}
+  if(S.mustChange&&h!=='conta'){location.hash='#conta';return}
   var y0=window.scrollY, newRoute=(S._r!==h); S._r=h;
   var ru=RL(); if(ru.units&&ru.units.length===1)S.f.unit=ru.units[0]; else if(ru.units&&ru.units.indexOf(S.f.unit)<0)S.f.unit='all'; if(S.f.units)S.f.units=S.f.units.filter(inScope);
   var cur,body;
@@ -1045,7 +1047,7 @@ document.addEventListener('submit',function(e){e.preventDefault();
     S.pp={id:key,mode:'edit',draft:{label:dd.label,desc:ROLES[key].desc,scope:dd.scope,screens:dd.screens.slice()},err:''};S.ppsaved=key;persist();S.pemsg=(pp.mode==='new'?'Perfil criado (simulação). Já aparece na lista de perfis dos usuários.':'');render();return}
   if(id==='resetForm'){S.lg='sent';render()}
   else if(id==='pwForm'){var a=document.getElementById('pw1').value,b=document.getElementById('pw2').value,m=document.getElementById('pwMsg');
-    if(a.length<8)m.textContent='A nova senha precisa ter pelo menos 8 caracteres.';else if(a!==b)m.textContent='As senhas não conferem. Digite a mesma senha nos dois campos.';else{m.textContent='Senha alterada (simulação).';e.target.reset()}}
+    if(a.length<8)m.textContent='A nova senha precisa ter pelo menos 8 caracteres.';else if(a!==b)m.textContent='As senhas não conferem. Digite a mesma senha nos dois campos.';else if(HOSTED){S.pwself='Salvando…';rpc('change_password',{current:document.getElementById('pw0').value,new:a});m.textContent='Salvando…'}else{m.textContent='Senha alterada (simulação local).';e.target.reset()}}
   else if(HOSTED){var _u=document.getElementById('lg-user'),_p=document.getElementById('lg-pass');if(CFG.flags.password){S.lgerr='';S.lgmail=(_u&&_u.value||'').trim();rpc('pw_login',{mail:S.lgmail,password:_p?_p.value:''})}else{S.lgerr='Entrada com e-mail e senha não está liberada neste ambiente. Use a conta Microsoft.';render()}}else doLogin()});
 document.addEventListener('click',function(e){
   var a=e.target.closest('[data-act]');
@@ -1173,7 +1175,7 @@ function tokGet(){try{return localStorage.getItem('portal_tok')||''}catch(e){ret
 function tokSet(t){try{if(t)localStorage.setItem('portal_tok',t)}catch(e){}}
 function tokDel(){try{localStorage.removeItem('portal_tok')}catch(e){}}
 function applyBoot(b){
-  BOOT=b;REAL=true;PWSET=(b.pw_users||[]).map(function(m){return String(m).toLowerCase()});
+  BOOT=b;REAL=true;S.mustChange=!!b.must_change;if(S.mustChange)S.pwForced=true;S.admins=b.admins_ativos||0;PWSET=(b.pw_users||[]).map(function(m){return String(m).toLowerCase()});
   VISITS.length=0;ONGOING.length=0;
   (b.forms||[]).forEach(function(x){if(MODS[x.key]){MODS[x.key].inapp=!!x.ready;MODS[x.key].kind=x.kind||'q';MODS[x.key].variant=x.variant||'';MODS[x.key].free=!!x.free;MODS[x.key].nm=x.medido===false;MODS[x.key].cm=x.conn_mode||'por_unidade'}});
   var f=b.flags||{};CFG.flags=f;CFG.devUsers=b.devUsers||[];CFG.forms=b.forms||[];
@@ -1224,12 +1226,14 @@ function onRender(args){
   if(r&&r.id&&r.id!==LASTREPLY){LASTREPLY=r.id;
     if(INFLIGHT&&INFLIGHT.id===r.id){clearTimeout(INFLIGHT.timer);INFLIGHT=null;setTimeout(pump,0)}
     if(r.kind==='pw_login'&&r.ok)tokSet(r.token);
+    if(r.must_change){S.mustChange=true;S.pwForced=true;DATA_BUSY=false;DATA_RETRY=0;S.ongLoaded=true;render();return}
+    if(r.kind==='change_password'){if(r.ok){tokSet(r.token);var was=S.pwForced;S.pwForced=false;S.mustChange=false;DATA_BUSY=false;S.pwself='Senha alterada com sucesso.';DATA_AT=0;DATA_RETRY=0;loadData(true);loadOngoing(true);if(was)location.hash='#inicio'}else S.pwself=r.msg||'Não foi possível alterar a senha.';render();return}
     if(r.kind==='pw_resume'){if(r.ok)tokSet(r.token);else{tokDel();S.resuming=false;render()}}
     if(r.kind==='login'||r.kind==='dev_login'||r.kind==='pw_login'){S.lgerr=r.ok?'':(r.msg||'Não foi possível entrar.')}
     if(r.kind==='save'){S.ctesting=false;if(r.ok){if(S.cdirty!==undefined)S.cdirty=false;S.cmsg=r.msg||'';S.cmsgbad=false}else{S.pemsg=null;S.cmsg=r.msg||'Não foi possível salvar.';S.cmsgbad=true;S.pe={id:null,draft:null};S.pp={id:null,mode:null,draft:null}}}
     if(r.kind==='data_load'){applyData(r);if(r.ok)loadOngoing(!!window.__fresh)}
     if(r.kind==='ongoing_load')applyOngoing(r);
-    if(r.kind==='set_password'||r.kind==='remove_password'){if(r.ok){var mm=String(r.mail||'').toLowerCase(),ix=PWSET.indexOf(mm);if(r.kind==='set_password'){if(ix<0)PWSET.push(mm);S.pwmsg='Senha definida'+(S.pwlast?': '+S.pwlast+' (informe à pessoa)':'.')}else{if(ix>-1)PWSET.splice(ix,1);S.pwmsg='Senha removida.'}}else S.pwmsg=r.msg||'Não foi possível.';S.pwlast=''}
+    if(r.kind==='set_password'||r.kind==='remove_password'){if(r.ok){var mm=String(r.mail||'').toLowerCase(),ix=PWSET.indexOf(mm);if(r.kind==='set_password'){if(ix<0)PWSET.push(mm);S.pwmsg='Senha temporária definida'+(S.pwlast?': '+S.pwlast+'. Informe à pessoa: ela precisará criar a própria senha no primeiro acesso.':'.')}else{if(ix>-1)PWSET.splice(ix,1);S.pwmsg='Senha removida.'}}else S.pwmsg=r.msg||'Não foi possível.';S.pwlast=''}
     if(r.kind==='plan_save'){S.pbusy=false;if(r.ok){PLANS[r.key]=r.plan;S.pedit=null;S.pmsg=''}else S.pmsg=r.msg||'Não foi possível salvar.'}
     if(r.kind==='form_submit'&&r.ok)setTimeout(function(){loadData(true)},300);
     if(r.kind&&r.kind.indexOf('form_')===0&&S.fm)fmReply(r);

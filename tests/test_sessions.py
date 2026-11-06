@@ -45,3 +45,38 @@ def test_token_de_um_usuario_nao_vale_para_outro():
     import base64
     forjado = base64.urlsafe_b64encode(base64.urlsafe_b64decode(b + "==").replace(b"a@x.com", b"b@x.com")).decode().rstrip("=")
     assert sessions.validar(s, forjado + "." + sig, SEG) is None
+
+
+# ---- troca de senha (própria e temporária)
+from core.store import Store  # noqa: E402
+
+
+def _store(tmp_path, monkeypatch):
+    monkeypatch.setenv("PORTAL_DATA_DIR", str(tmp_path))
+    s = Store()
+    return s
+
+
+def test_senha_temporaria_exige_troca_e_troca_propria_libera(tmp_path, monkeypatch):
+    s = _store(tmp_path, monkeypatch)
+    s.data["users"].append({"id": "u2", "name": "Pessoa", "mail": "p@x.com", "role": "admin", "scope": "all", "units": [], "ov": {}, "active": True})
+    s.set_password("p@x.com", "Temporaria1", temporaria=True)
+    assert s.must_change("P@x.com")
+    ok, msg = s.trocar_senha("p@x.com", "errada-123", "NovaSenha1")
+    assert not ok and "atual" in msg and s.must_change("p@x.com")
+    assert s.trocar_senha("p@x.com", "Temporaria1", "curta")[0] is False
+    assert s.trocar_senha("p@x.com", "Temporaria1", "Temporaria1")[0] is False
+    assert s.trocar_senha("p@x.com", "Temporaria1", "p@x.com")[0] is False
+    ok, _ = s.trocar_senha("p@x.com", "Temporaria1", "NovaSenha1")
+    assert ok and not s.must_change("p@x.com")
+    assert s.check_password("p@x.com", "NovaSenha1") and not s.check_password("p@x.com", "Temporaria1")
+
+
+def test_troca_invalida_sessoes_antigas(tmp_path, monkeypatch):
+    s = _store(tmp_path, monkeypatch)
+    s.data["users"].append({"id": "u2", "name": "P", "mail": "p@x.com", "role": "admin", "scope": "all", "units": [], "ov": {}, "active": True})
+    s.set_password("p@x.com", "SenhaAntiga1")
+    t = sessions.emitir(s, "p@x.com", SEG)
+    assert sessions.validar(s, t, SEG) == "p@x.com"
+    s.trocar_senha("p@x.com", "SenhaAntiga1", "SenhaNova123")
+    assert sessions.validar(s, t, SEG) is None
