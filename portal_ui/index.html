@@ -1234,7 +1234,7 @@ function onRender(args){
   if(args.boot&&(!BOOT||args.boot.v!==BOOT.v)){var pend=S.pemsg;applyBoot(args.boot);if(pend)S.pemsg=pend}
   var r=args.reply;
   if(r&&r.id&&r.id!==LASTREPLY){LASTREPLY=r.id;
-    try{(window.__T=window.__T||[]).push({k:r.kind,rt:Date.now()-Math.floor(r.id/100),s:r._t||null});if(window.__T.length>200)window.__T.shift()}catch(e){}
+    try{(window.__T=window.__T||[]).push({k:r.kind,rt:Date.now()-Math.floor(r.id/100),s:r._t||null,p:r.prof||null});if(window.__T.length>200)window.__T.shift()}catch(e){}
     if(INFLIGHT&&INFLIGHT.id===r.id){clearTimeout(INFLIGHT.timer);INFLIGHT=null;setTimeout(pump,0)}
     if(r.kind==='pw_login'&&r.ok)tokSet(r.token);
     if(r.must_change){S.mustChange=true;S.pwForced=true;DATA_BUSY=false;DATA_RETRY=0;S.ongLoaded=true;render();return}

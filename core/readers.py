@@ -259,11 +259,17 @@ def load(store, mail):
     problems, visits = [], []
     stale0 = _STALE_SERVIDOS
 
+    prof = []
+
     def _um(form):                      # cada formulário lê suas próprias planilhas; roda em paralelo
+        t = time.perf_counter()
         prob, out = [], []
         cat = _catalogo(form)
-        for vis, itens in _fontes(store, form, prob):
+        fo = _fontes(store, form, prob)
+        t1 = time.perf_counter() - t
+        for vis, itens in fo:
             out += _visitas_de(form, vis, itens, cat)
+        prof.append((form, round(t1, 2), round(time.perf_counter() - t - t1, 2)))   # (form, leitura, cálculo)
         return prob, out
 
     prontos = [f for f in FORMS if FORMS[f].get("ready")]
@@ -286,4 +292,4 @@ def load(store, mail):
         final.append(v)
     final.sort(key=lambda x: x["date"])
     return {"visits": final, "groups": {f: grupos(f) for f in FORMS if FORMS[f].get("ready")}, "problems": problems,
-            "stale": _STALE_SERVIDOS > stale0}
+            "stale": _STALE_SERVIDOS > stale0, "prof": prof}

@@ -109,7 +109,7 @@ def run():
                     andamento.limpar_cache()
                 _err = []
                 _on = andamento.listar(store, mail, _err)
-                reply = {"kind": "ongoing_load", "ok": True, "ongoing": _on, "ongoing_err": bool(_err)}
+                reply = {"kind": "ongoing_load", "ok": True, "ongoing": _on, "ongoing_err": bool(_err), "prof": list(andamento.PROF)}
             except Exception as e:
                 reply = {"kind": "ongoing_load", "ok": False, "msg": str(e)[:160]}
         elif act == "change_password" and settings.password_login_enabled():
