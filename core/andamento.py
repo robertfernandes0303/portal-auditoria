@@ -1,17 +1,25 @@
 """Visitas em andamento (rascunhos ainda não enviados) de todos os formulários, para a tela Início.
 Lê os rascunhos reais (planilha/Drive ou arquivo local) com o mesmo acesso de cada formulário. Puro Python."""
 import importlib
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from core.forms_api import Ctx, PKG
 from core.catalog import FORMS
 
-TTL = 60
+TTL = 120                # lista pronta de cada pessoa
+STALE = 86400            # além do TTL, devolve o último resultado na hora e atualiza por trás (nunca deixa a tela esperando)
+TTL_UNIT = 120           # leitura de rascunho de cada unidade (todas as pessoas compartilham)
 _CACHE = {}
+_UNIT = {}               # unidade -> (instante, rascunho)
+_LOCK = threading.Lock()
+_EMVOO = set()
 
 
 def limpar_cache():
     _CACHE.clear()
+    _UNIT.clear()
 
 
 def _vt(ctx, key, out):
@@ -38,14 +46,28 @@ def _aud(ctx, out):
     m = mod._mapping(ctx)
     mod.be._carregar_mapeamento = lambda: m
     total = sum(1 for s in lg.SECOES if s["tipo"] != "quantidade" for _ in s["itens"])
-    for unidade in (ctx.unit_names if ctx.is_global else ctx.allowed):
+    ler = getattr(mod.be, "carregar_rascunho_rapido", None) or mod.be.carregar_rascunho
+
+    def _ler(unidade):
         _t = time.perf_counter()
+        hit = _UNIT.get(unidade)
+        if hit and time.time() - hit[0] < TTL_UNIT:
+            return unidade, hit[1]
         try:
-            b = (getattr(mod.be, "carregar_rascunho_rapido", None) or mod.be.carregar_rascunho)(unidade)
+            b = ler(unidade)
         except Exception:
-            continue
+            b = mod.be.ERRO_VERIFICACAO_RASCUNHO
         finally:
             PROF.append((unidade[:14], round(time.perf_counter() - _t, 2)))
+        if b == mod.be.ERRO_VERIFICACAO_RASCUNHO:       # falha/cota do Google: usa o último valor conhecido
+            return unidade, (hit[1] if hit else None)
+        _UNIT[unidade] = (time.time(), b)
+        return unidade, b
+
+    unidades = list(ctx.unit_names if ctx.is_global else ctx.allowed)
+    with ThreadPoolExecutor(max_workers=min(8, max(1, len(unidades)))) as ex:      # em paralelo (antes: uma a uma)
+        lidos = list(ex.map(_ler, unidades))
+    for unidade, b in lidos:
         if not isinstance(b, dict):
             continue
         d = b.get("dados") or {}
@@ -67,8 +89,29 @@ def listar(store, mail, erros=None):
         return []
     k = mail.strip().lower()
     hit = _CACHE.get(k)
-    if hit and time.time() - hit[0] < TTL:
+    agora = time.time()
+    if hit and agora - hit[0] < TTL:
         return hit[1]
+    if hit and agora - hit[0] < STALE:          # lista antiga: entrega já e atualiza em segundo plano
+        with _LOCK:
+            novo = k not in _EMVOO
+            if novo:
+                _EMVOO.add(k)
+        if novo:
+            def _bg():
+                try:
+                    _calcular(store, mail, user, k, None)
+                except Exception:
+                    pass
+                finally:
+                    with _LOCK:
+                        _EMVOO.discard(k)
+            threading.Thread(target=_bg, daemon=True).start()
+        return hit[1]
+    return _calcular(store, mail, user, k, erros)
+
+
+def _calcular(store, mail, user, k, erros):
     ctx = Ctx(store, mail, user)
     out = []
     falhou = False

@@ -23,11 +23,30 @@ def _flags(store):
             "password": settings.password_login_enabled(), "google": settings.google_configured(), "sa_email": drive.service_account_email()}
 
 
+_WARM = {"feito": False}
+
+
+def _aquecer(store):
+    """Ao subir o servidor, já lê as planilhas em segundo plano: a primeira pessoa a entrar não espera a leitura fria."""
+    try:
+        from core import readers, andamento
+        mail = next((u["mail"] for u in store.users() if u.get("active", True) and (u.get("role") == "admin" or u.get("scope") == "all")), None)
+        if mail:
+            readers.load(store, mail)
+            andamento.listar(store, mail)
+    except Exception:
+        pass
+
+
 def run():
     st.set_page_config(page_title="Portal de Auditoria · São Lucas", page_icon=":material/fact_check:", layout="wide",
                        initial_sidebar_state="collapsed")
     st.markdown(CSS, unsafe_allow_html=True)
     store = get_store()
+    if not _WARM["feito"]:
+        _WARM["feito"] = True
+        import threading
+        threading.Thread(target=_aquecer, args=(store,), daemon=True).start()
     ss = st.session_state
     ss.setdefault("ver", 1)
     reply = None
