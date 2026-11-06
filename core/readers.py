@@ -10,6 +10,7 @@ Regras de conversão para o painel (ajustáveis nas constantes abaixo):
   UPA/PAM       : levantamento sem conformidade → entra em Visitas/Histórico, sem pontuação
 """
 import os
+import threading
 import time
 from datetime import datetime
 
@@ -21,12 +22,34 @@ PARCIAL_COMO = "NC"      # Parcial conta como não conforme (entra no plano de a
 TTL = 180                # segundos de cache por planilha (a cota do Google é de ~60 leituras/min)
 
 _CACHE = {}
+STALE = 86400            # até 24 h: o último dado bom é mostrado NA HORA enquanto o novo é lido em segundo plano
+_EMVOO = set()           # chaves que já estão sendo atualizadas em segundo plano
+_LOCK = threading.Lock()
+_STALE_SERVIDOS = 0      # quantas leituras foram respondidas com dado antigo (o painel pede nova atualização)
 
 
 def _cached(key, fn):
+    global _STALE_SERVIDOS
     t = time.time()
     hit = _CACHE.get(key)
     if hit and t - hit[0] < TTL:
+        return hit[1]
+    if hit and t - hit[0] < STALE:          # dado antigo: responde já e atualiza por trás (sem tela vazia/espera)
+        with _LOCK:
+            _STALE_SERVIDOS += 1
+            novo = key not in _EMVOO
+            if novo:
+                _EMVOO.add(key)
+        if novo:
+            def _bg():
+                try:
+                    _CACHE[key] = (time.time(), fn())
+                except Exception:
+                    pass                    # falhou: mantém o último dado bom
+                finally:
+                    with _LOCK:
+                        _EMVOO.discard(key)
+            threading.Thread(target=_bg, daemon=True).start()
         return hit[1]
     try:
         val = fn()
@@ -234,6 +257,7 @@ def load(store, mail):
     ctx = Ctx(store, mail, user)
     nomes = {u["nome"] for u in store.units(only_active=False)}
     problems, visits = [], []
+    stale0 = _STALE_SERVIDOS
 
     def _um(form):                      # cada formulário lê suas próprias planilhas; roda em paralelo
         prob, out = [], []
@@ -261,4 +285,5 @@ def load(store, mail):
         vistos.add(k)
         final.append(v)
     final.sort(key=lambda x: x["date"])
-    return {"visits": final, "groups": {f: grupos(f) for f in FORMS if FORMS[f].get("ready")}, "problems": problems}
+    return {"visits": final, "groups": {f: grupos(f) for f in FORMS if FORMS[f].get("ready")}, "problems": problems,
+            "stale": _STALE_SERVIDOS > stale0}

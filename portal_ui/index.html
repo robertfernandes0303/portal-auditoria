@@ -1088,7 +1088,7 @@ document.addEventListener('click',function(e){
     else if(act==='ppdelcancel'){S.ppconf=null;render()}
     else if(act==='ppdel'){var dk=S.pp.id;delete ROLES[dk];delete PERFIL[dk];persist();S.pp={id:null,mode:null,draft:null};S.ppconf=null;S.pemsg='Perfil excluído (simulação).';render()}
     else if(act==='nvmod'){S.nv.mod=a.dataset.v;render()}
-    else if(act==='logout'){if(HOSTED){tokDel();flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
+    else if(act==='logout'){if(HOSTED){tokDel();snapDelAll();snapPill('');flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
     else if(act==='ongretry'){S.ongErr=false;S.ongLoaded=false;DATA_RETRY=0;loadOngoing(true);render()}
     else if(act==='pexp'){S.pexp[a.dataset.u]=!S.pexp[a.dataset.u];var y6=window.scrollY;render();window.scrollTo(0,y6)}
     else if(act==='lgreset'){e.preventDefault();S.lg='reset';render()}
@@ -1174,7 +1174,14 @@ function devPick(){
 }
 function tokGet(){try{return localStorage.getItem('portal_tok')||''}catch(e){return ''}}
 function tokSet(t){try{if(t)localStorage.setItem('portal_tok',t)}catch(e){}}
-function tokDel(){try{localStorage.removeItem('portal_tok')}catch(e){}}
+function tokDel(){try{localStorage.removeItem('portal_tok')}catch(e){}snapDelAll()}
+function snapKey(){return 'portal_snap:'+String((S.me&&S.me.mail)||'').toLowerCase()}
+function snapGet(mail){try{var o=JSON.parse(localStorage.getItem('portal_snap:'+String(mail||'').toLowerCase())||'null');if(o&&o.d&&Date.now()-o.at<7*864e5)return o}catch(e){}return null}
+function snapSave(k,r){if(!S.me)return;try{var o=JSON.parse(localStorage.getItem(snapKey())||'null')||{};o.at=Date.now();o[k]=r;localStorage.setItem(snapKey(),JSON.stringify(o))}catch(e){}}
+function snapDelAll(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf('portal_snap:')===0)localStorage.removeItem(k)})}catch(e){}}
+function snapPill(t){var e=document.getElementById('snapnote');if(!t){if(e)e.remove();return}if(!e){e=document.createElement('div');e.id='snapnote';e.setAttribute('role','status');e.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;background:#0b3b6b;color:#fff;font:600 12px system-ui,sans-serif;padding:6px 12px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.25);pointer-events:none;max-width:92vw;text-align:center';document.body.appendChild(e)}e.textContent=t}
+function snapApply(sn){try{sn.d.__snap=1;applyData(sn.d);if(sn.o&&sn.o.ok&&!sn.o.ongoing_err){ONGOING.length=0;(sn.o.ongoing||[]).forEach(function(o){if(MODS[o.form])ONGOING.push({mod:o.form,unit:o.unit,since:o.atualizado_em,pct:o.pct,codigo:o.codigo,resp:o.resp,feitos:o.feitos,total:o.total})});S.ongLoaded=true}
+  DATA_AT=0;DATA_BUSY=false;var d=new Date(sn.at),p=function(n){return ('0'+n).slice(-2)};snapPill('Mostrando dados de '+p(d.getDate())+'/'+p(d.getMonth()+1)+' '+p(d.getHours())+':'+p(d.getMinutes())+' · atualizando…')}catch(e){VISITS.length=0}}
 function applyBoot(b){
   BOOT=b;REAL=true;S.mustChange=!!b.must_change;if(S.mustChange)S.pwForced=true;S.admins=b.admins_ativos||0;PWSET=(b.pw_users||[]).map(function(m){return String(m).toLowerCase()});
   VISITS.length=0;ONGOING.length=0;
@@ -1191,7 +1198,7 @@ function applyBoot(b){
   if(b.mode==='app'&&b.me){
     var m=b.me,first=!S.user;
     S.me={user:m.name,mail:m.mail,label:m.label,desc:m.desc,units:m.scope==='all'?null:m.units.slice(),scope:m.scope,screens:m.screens.slice()};
-    S.user=m.name;S.resuming=false;S.lgerr='';S.lgden='';if(!DATA_AT)setTimeout(function(){loadData(false)},50);
+    S.user=m.name;S.resuming=false;S.lgerr='';S.lgden='';if(!DATA_AT){var sn=snapGet(m.mail);if(sn)snapApply(sn);setTimeout(function(){loadData(false)},50)}
     if(first){S.f={unit:'all',mod:'all',per:'all',from:'',to:''};if(!location.hash||location.hash==='#')location.hash='#inicio'}
   }else{S.user=null;S.me=null;S.ongLoaded=false;S.ongErr=false;ONGOING.length=0;S.lgden=b.mode==='denied'?b.mail:'';location.hash='';
     var tk=tokGet();
@@ -1206,17 +1213,19 @@ function applyOngoing(r){
   if(!r.ok){S.ongErr=true;if(HOSTED)render();return}
   S.ongErr=!!r.ongoing_err;
   if(r.ongoing_err&&!(r.ongoing||[]).length&&ONGOING.length){if(HOSTED)render();if((DATA_RETRY||0)<3){DATA_RETRY=(DATA_RETRY||0)+1;setTimeout(function(){loadOngoing(true)},2500+DATA_RETRY*2500)}return}
+  if(!r.ongoing_err)snapSave('o',r);
   ONGOING.length=0;(r.ongoing||[]).forEach(function(o){if(MODS[o.form])ONGOING.push({mod:o.form,unit:o.unit,since:o.atualizado_em,pct:o.pct,codigo:o.codigo,resp:o.resp,feitos:o.feitos,total:o.total})});
   if(r.ongoing_err&&(DATA_RETRY||0)<3){DATA_RETRY=(DATA_RETRY||0)+1;setTimeout(function(){loadOngoing(true)},2500+DATA_RETRY*2500)}else if(!r.ongoing_err)DATA_RETRY=0;if(HOSTED)render()}
 function applyData(r){
   DATA_BUSY=false;DATA_AT=Date.now();S.dataErr=r.ok?'':(r.msg||'Não foi possível ler as planilhas.');S.dataProb=r.problems||[];
-  if(!r.ok)return;
+  if(!r.ok){if(!r.__snap)snapPill('');return}
   Object.keys(r.groups||{}).forEach(function(k){if(MODS[k])MODS[k].groups=r.groups[k]});
   PLANS=r.plans||{};PLAN_EDIT=r.plan_edit||[];
   VISITS.length=0;var seen={};
   r.visits.forEach(function(v){VISITS.push({id:v.id,mod:v.mod,unit:v.unit,date:v.date,resp:v.resp,acomp:v.acomp||'',items:v.items})});
   VISITS.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
   VISITS.forEach(function(v){var k=v.unit+'|'+v.mod;seen[k]=(seen[k]||0)+1;v.k=seen[k]-1});
+  if(!r.__snap){snapSave('d',r);if(!r.stale)snapPill('')}
 }
 window.addEventListener('hashchange',function(){if(HOSTED&&S.me&&Date.now()-DATA_AT>60000)loadData(false)});
 function onRender(args){
@@ -1232,7 +1241,7 @@ function onRender(args){
     if(r.kind==='pw_resume'){if(r.ok)tokSet(r.token);else{tokDel();S.resuming=false;render()}}
     if(r.kind==='login'||r.kind==='dev_login'||r.kind==='pw_login'){S.lgerr=r.ok?'':(r.msg||'Não foi possível entrar.')}
     if(r.kind==='save'){S.ctesting=false;if(r.ok){if(S.cdirty!==undefined)S.cdirty=false;S.cmsg=r.msg||'';S.cmsgbad=false}else{S.pemsg=null;S.cmsg=r.msg||'Não foi possível salvar.';S.cmsgbad=true;S.pe={id:null,draft:null};S.pp={id:null,mode:null,draft:null}}}
-    if(r.kind==='data_load'){applyData(r);if(r.ok)loadOngoing(!!window.__fresh)}
+    if(r.kind==='data_load'){applyData(r);if(r.ok)loadOngoing(!!window.__fresh);if(r.ok&&r.stale&&(S.stRe||0)<2){S.stRe=(S.stRe||0)+1;setTimeout(function(){loadData(false)},6000)}else if(r.ok)S.stRe=0}
     if(r.kind==='ongoing_load')applyOngoing(r);
     if(r.kind==='set_password'||r.kind==='remove_password'){if(r.ok){var mm=String(r.mail||'').toLowerCase(),ix=PWSET.indexOf(mm);if(r.kind==='set_password'){if(ix<0)PWSET.push(mm);S.pwmsg='Senha temporária definida'+(S.pwlast?': '+S.pwlast+'. Informe à pessoa: ela precisará criar a própria senha no primeiro acesso.':'.')}else{if(ix>-1)PWSET.splice(ix,1);S.pwmsg='Senha removida.'}}else S.pwmsg=r.msg||'Não foi possível.';S.pwlast=''}
     if(r.kind==='plan_save'){S.pbusy=false;if(r.ok){PLANS[r.key]=r.plan;S.pedit=null;S.pmsg=''}else S.pmsg=r.msg||'Não foi possível salvar.'}
