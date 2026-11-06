@@ -34,6 +34,9 @@ def run():
     req = ss.get("portal")
     if isinstance(req, dict) and req.get("id") and req["id"] != ss.get("last_rpc"):
         ss["last_rpc"] = req["id"]
+        import time as _tm
+        from core import gquota as _gq
+        _t0, _s0 = _tm.perf_counter(), _gq.snapshot()
         act, pl = req.get("action"), req.get("payload") or {}
         mail = auth.current_mail()
         if mail and settings.password_login_enabled() and store.must_change(mail) and act not in ("change_password", "logout", "pw_login", "pw_resume", "login", "save_noop"):
@@ -188,6 +191,10 @@ def run():
                 reply = {"kind": "test", "results": {}}
         if reply is None:
             reply = {"kind": act, "ok": True}
+        _s1 = _gq.snapshot()
+        reply["_t"] = {"ms": round((_tm.perf_counter() - _t0) * 1000), "calls": _s1["calls"] - _s0["calls"],
+                       "wait": round(_s1["wait"] - _s0["wait"], 1), "r429": _s1["r429"] - _s0["r429"],
+                       "http": round(_s1["http"] - _s0["http"], 2)}
         reply["id"] = req["id"]
     mail = auth.current_mail()
     boot = api.build_boot(store, mail, ss["ver"], _flags(store))

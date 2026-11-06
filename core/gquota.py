@@ -12,6 +12,12 @@ ESPERA_429 = 8.0     # segundos (cresce a cada tentativa)
 _lock = threading.Lock()
 _marcas = deque()
 _aplicado = False
+_stats = {"calls": 0, "wait": 0.0, "r429": 0, "http": 0.0}
+
+
+def snapshot():
+    with _lock:
+        return dict(_stats)
 
 
 def aguardar_vaga(agora=time.monotonic, dormir=time.sleep):
@@ -24,6 +30,8 @@ def aguardar_vaga(agora=time.monotonic, dormir=time.sleep):
                 _marcas.popleft()
             if len(_marcas) < LIMITE:
                 _marcas.append(t)
+                _stats["calls"] += 1
+                _stats["wait"] += esperou
                 return esperou
             falta = JANELA - (t - _marcas[0]) + 0.05
         dormir(falta)
@@ -39,6 +47,8 @@ def _com_retentativa(fn, dormir=time.sleep):
         except APIError as e:
             code = getattr(getattr(e, "response", None), "status_code", 0)
             if code == 429 and i < TENTATIVAS - 1:
+                with _lock:
+                    _stats["r429"] += 1
                 dormir(ESPERA_429 * (i + 1))
                 continue
             raise
@@ -53,6 +63,11 @@ def aplicar():
     orig = HTTPClient.request
 
     def request(self, *a, **k):
-        return _com_retentativa(lambda: orig(self, *a, **k))
+        t0 = time.perf_counter()
+        try:
+            return _com_retentativa(lambda: orig(self, *a, **k))
+        finally:
+            with _lock:
+                _stats["http"] += time.perf_counter() - t0
     HTTPClient.request = request
     _aplicado = True
