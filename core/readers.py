@@ -138,11 +138,23 @@ def _fontes(store, form, problems):
     else:
         r = drive.extract_id(store.conn(form, "__consolidado__").get("planilha", ""))
         refs = [("", r)] if r else []
-    for nome, ref in refs:
+    def _um(par):
         try:
-            out.append(_ler_google(form, ref))
+            return _ler_google(form, par[1]), None
         except Exception as e:
-            problems.append({"form": form, "onde": nome or "planilha única", "erro": str(e)[:120]})
+            return None, {"form": form, "onde": par[0] or "planilha única", "erro": str(e)[:120]}
+
+    if len(refs) > 1:       # auditoria institucional: 1 planilha por unidade, lidas em paralelo (antes, uma após a outra)
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(8, len(refs))) as ex:
+            res = list(ex.map(_um, refs))       # map preserva a ordem
+    else:
+        res = [_um(p) for p in refs]
+    for ok, prob in res:
+        if prob:
+            problems.append(prob)
+        else:
+            out.append(ok)
     return out
 
 

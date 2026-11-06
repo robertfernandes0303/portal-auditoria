@@ -68,6 +68,7 @@ a{color:inherit}
 /* filtros */
 .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .sel{display:flex;flex-direction:column;gap:3px;min-width:0}
+.sel[hidden]{display:none}
 .sel label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .sel select{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:9px 34px 9px 12px;appearance:none;min-width:150px;max-width:100%;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
@@ -1519,6 +1520,7 @@ var VOPC=['OK','Parcial','Não','N/A'], VOPK=['ok','warn','bad','na'], VICO={'OK
 function vtDados(){var d=S.fm.d;return {codigo_visita:d.codigo,hospital:d.hospital,cidade:d.cidade,uf:d.uf,edital:d.edital,responsavel_visita:d.resp,acompanhante:d.acomp,
   data_visita:d.data,timestamp_inicio:d.ts,respostas:d.r,previsto_informado:d.prev,anexos:d.a,grupos_visitados:d.vis,grupos_concluidos:d.con,anexos_removidos:d.rem,horario:d.hora||'',impactos:d.imp||{},sintese:d.sint||[],pendencias:d.pend||[],obs_finais:d.obsf||'',ponto:{step:S.fm.step,gi:S.fm.gi},cv:S.fm.cv||0}}
 function vtV3(){return MODS[S.fm.form].variant==='v03'}
+function vtEdOn(n){n=String(n||'').trim().toLowerCase();return !UNITS.some(function(u){return String(u).toLowerCase()===n})}
 function vtU(){return MODS[S.fm.form].variant==='upa'}
 function vtDone(r){r=r||{};return vtU()?(!!String(r.resposta||'').trim()||r.fonte==='Não verificado'||r.fonte==='Não se aplica'):!!r.situacao}
 function vtVis(g){var f=S.fm;return !f.solo||g.itens.some(function(i){return i.foco==='E'})}
@@ -1557,7 +1559,7 @@ function viewVT(){
     '<div class="sel"><label for="vh-d">Data da visita *</label><input id="vh-d" class="cbi" type="date" max="'+fmNow().iso+'" value="'+esc(h.data)+'" data-vi="h-data"></div>'+
     '<div class="sel"><label for="vh-r">Responsável pela visita *</label><input id="vh-r" class="cbi" type="text" value="'+esc(h.resp)+'" data-vi="h-resp"></div>'+
     '<div class="sel"><label for="vh-a">'+(vtU()?'Acompanhante / função':'Nome de quem acompanhou (hospital)')+'</label><input id="vh-a" class="cbi" type="text" value="'+esc(h.acomp)+'" data-vi="h-acomp"></div>'+
-    ''+(vtU()?'<div class="sel"><label for="vh-hr">Horário da visita</label><input id="vh-hr" class="cbi" type="time" value="'+esc(h.hora||'')+'" data-vi="h-hora"></div>':'')+'<div class="sel"><label for="vh-e">Edital / Processo</label><input id="vh-e" class="cbi" type="text" value="'+esc(h.edital)+'" data-vi="h-edital"></div></div>'+(ab?'':err)+
+    ''+(vtU()?'<div class="sel"><label for="vh-hr">Horário da visita</label><input id="vh-hr" class="cbi" type="time" value="'+esc(h.hora||'')+'" data-vi="h-hora"></div>':'')+(f.form==='enf'?'':'<div class="sel" id="vh-ew"'+(vtEdOn(h.hospital)?'':' hidden')+'><label for="vh-e">Edital / Processo (unidade em licitação)</label><input id="vh-e" class="cbi" type="text" value="'+esc(h.edital)+'" data-vi="h-edital"></div>')+'</div>'+(ab?'':err)+
     '<div style="margin-top:16px"><button class="btn" data-va="begin"'+(f.busy?' disabled style="opacity:.6"':'')+'>'+(f.busy?'Verificando…':'Iniciar visita')+'</button></div></section>'}
   if(f.step==='list')return vtHead('')+'<section class="card"><h2 style="margin:0 0 6px">Há visita em andamento para '+esc(f.h.hospital)+'</h2><p class="note" style="margin:0 0 6px">Deseja continuar uma delas?</p>'+f.lista.map(vtSummary).join('')+err+'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn" data-va="startnew">Começar uma nova visita</button><button class="btn sec" data-va="backhead">Voltar</button></div></section>';
   if(f.step==='menu'){
@@ -1631,7 +1633,7 @@ function vtReply(r){var f=S.fm;
     if(r.ok){(f.d.a[n]=f.d.a[n]||[]).push(r.anexo);vtSave()}else{(f.uerr[n]=f.uerr[n]||[]).push(r.msg||'Falha ao guardar o arquivo.')}}
   else if(r.kind==='form_submit'){f.busy=false;if(r.ok===false&&!r.codigo){f.err=r.msg||'Não foi possível enviar.';return}f.res=r;f.step='done';f.err='';try{localStorage.removeItem('pdraft:'+f.form+':'+f.d.codigo)}catch(e){}}
 }
-function vtNew(codigo){var f=S.fm,h=f.h;f.d={codigo:codigo,hospital:h.hospital.trim(),cidade:h.cidade,uf:h.uf,edital:h.edital,resp:h.resp.trim(),acomp:h.acomp,data:h.data,ts:fmNow().t,r:{},prev:{},a:{},vis:[],con:[],rem:[],sint:[],pend:[],obsf:'',hora:h.hora||'',imp:{}};f.step='menu';f.err='';f.busy=false;vtSave(true)}
+function vtNew(codigo){var f=S.fm,h=f.h;f.d={codigo:codigo,hospital:h.hospital.trim(),cidade:h.cidade,uf:h.uf,edital:(f.form==='enf'||!vtEdOn(h.hospital))?'':h.edital,resp:h.resp.trim(),acomp:h.acomp,data:h.data,ts:fmNow().t,r:{},prev:{},a:{},vis:[],con:[],rem:[],sint:[],pend:[],obsf:'',hora:h.hora||'',imp:{}};f.step='menu';f.err='';f.busy=false;vtSave(true)}
 function vtPick(num,cam){
   var f=S.fm,i=document.createElement('input');i.type='file';i.style.display='none';
   if(cam){i.accept='image/*';i.setAttribute('capture','environment')}else{i.accept=f.cfg.ext.map(function(e){return '.'+e}).join(',');i.multiple=true}
@@ -1692,7 +1694,7 @@ document.addEventListener('input',function(e){var t=e.target,f=S.fm;if(!f||f.kin
   else if(k==='sint'){f.d.sint[+t.dataset.i][t.dataset.c]=t.value;vtSave()}
   else if(k==='pend'){f.d.pend[+t.dataset.i]=t.value;vtSave()}
   else if(k==='obsf'){f.d.obsf=t.value;vtSave()}
-  else if(k.indexOf('h-')===0){f.h[k.slice(2)]=t.value}});
+  else if(k.indexOf('h-')===0){f.h[k.slice(2)]=t.value;if(k==='h-hospital'){var ew=document.getElementById('vh-ew');if(ew){var on=vtEdOn(t.value);ew.hidden=!on;if(!on){f.h.edital='';var ei=document.getElementById('vh-e');if(ei)ei.value=''}}}}});
 document.addEventListener('change',function(e){var t=e.target,f=S.fm;if(f&&f.kind==='vt'&&t.dataset&&t.dataset.vi==='h-uf')f.h.uf=t.value});
 document.addEventListener('toggle',function(e){var t=e.target,f=S.fm;if(f&&f.kind==='vt'&&t.classList&&t.classList.contains('vtd'))f.open[t.dataset.n]=t.open},true);
 
