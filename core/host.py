@@ -131,6 +131,14 @@ def run():
                 reply = {"kind": "ongoing_load", "ok": True, "ongoing": _on, "ongoing_err": bool(_err), "prof": list(andamento.PROF)}
             except Exception as e:
                 reply = {"kind": "ongoing_load", "ok": False, "msg": str(e)[:160]}
+        elif act == "visit_discard":
+            from core import descarte
+            try:
+                reply = descarte.descartar(store, mail, pl.get("form"), pl.get("codigo"), pl.get("unit"))
+            except api.Rejected as e:
+                reply = {"kind": "visit_discard", "ok": False, "msg": str(e)}
+            except Exception as e:
+                reply = {"kind": "visit_discard", "ok": False, "msg": "Não foi possível descartar: " + str(e)[:120]}
         elif act == "change_password" and settings.password_login_enabled():
             import time
             from core import sessions

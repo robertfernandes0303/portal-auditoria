@@ -1244,6 +1244,7 @@ function onRender(args){
     if(r.kind==='save'){S.ctesting=false;if(r.ok){if(S.cdirty!==undefined)S.cdirty=false;S.cmsg=r.msg||'';S.cmsgbad=false}else{S.pemsg=null;S.cmsg=r.msg||'Não foi possível salvar.';S.cmsgbad=true;S.pe={id:null,draft:null};S.pp={id:null,mode:null,draft:null}}}
     if(r.kind==='data_load'){applyData(r);if(r.ok)loadOngoing(!!window.__fresh);if(r.ok&&r.stale&&(S.stRe||0)<2){S.stRe=(S.stRe||0)+1;setTimeout(function(){loadData(false)},6000)}else if(r.ok)S.stRe=0}
     if(r.kind==='ongoing_load')applyOngoing(r);
+    if(r.kind==='visit_discard'){window.__disc=r;if(r.ok){for(var di=ONGOING.length-1;di>=0;di--)if(ONGOING[di].codigo===r.codigo&&ONGOING[di].mod===r.form)ONGOING.splice(di,1);try{snapDelAll()}catch(e){}loadOngoing(true);if(HOSTED)render()}}
     if(r.kind==='set_password'||r.kind==='remove_password'){if(r.ok){var mm=String(r.mail||'').toLowerCase(),ix=PWSET.indexOf(mm);if(r.kind==='set_password'){if(ix<0)PWSET.push(mm);S.pwmsg='Senha temporária definida'+(S.pwlast?': '+S.pwlast+'. Informe à pessoa: ela precisará criar a própria senha no primeiro acesso.':'.')}else{if(ix>-1)PWSET.splice(ix,1);S.pwmsg='Senha removida.'}}else S.pwmsg=r.msg||'Não foi possível.';S.pwlast=''}
     if(r.kind==='plan_save'){S.pbusy=false;if(r.ok){PLANS[r.key]=r.plan;S.pedit=null;S.pmsg=''}else S.pmsg=r.msg||'Não foi possível salvar.'}
     if(r.kind==='form_submit'&&r.ok)setTimeout(function(){loadData(true)},300);
