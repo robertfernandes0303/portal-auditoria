@@ -204,11 +204,27 @@ def _aba_listagem():
 def _aba(planilha, titulo, colunas):
     import gspread
     try:
-        return planilha.worksheet(titulo)
+        ws = planilha.worksheet(titulo)
     except gspread.exceptions.WorksheetNotFound:
         ws = planilha.add_worksheet(title=titulo, rows=1000, cols=len(colunas) + 2)
         ws.append_row(colunas, value_input_option=RAW)
         return ws
+    _estender_cabecalho(ws, colunas)
+    return ws
+
+
+def _estender_cabecalho(ws, colunas):
+    """Planilha antiga com cabecalho mais curto (colunas novas no fim): completa o
+    cabecalho, sem tocar nas linhas ja gravadas. So age se o atual for prefixo do novo."""
+    try:
+        atual = [str(c) for c in (ws.row_values(1) or [])]
+        novo = [str(c) for c in colunas]
+        if atual and len(atual) < len(novo) and novo[:len(atual)] == atual:
+            if getattr(ws, "col_count", len(novo)) < len(novo):
+                ws.add_cols(len(novo) - ws.col_count)
+            ws.update("A1", [novo], value_input_option=RAW)
+    except Exception:
+        pass
 
 
 def _aba_se_existe(planilha, titulo):

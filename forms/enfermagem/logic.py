@@ -7,7 +7,7 @@ def catalogo():
 
 
 def config():
-    return {"opcoes": sc.OPCOES_SITUACAO, "max_anexos": sc.MAX_ANEXOS_POR_ITEM, "ufs": sc.UFS, "total": sc.TOTAL_ITENS,
+    return {"opcoes": sc.OPCOES_SITUACAO, "rotulos": sc.ROTULOS, "exige_obs": sc.EXIGE_OBS, "modulos": sc.MODULOS_ESPECIFICOS, "max_anexos": sc.MAX_ANEXOS_POR_ITEM, "ufs": sc.UFS, "total": sc.TOTAL_ITENS,
             "ext": sc.EXTENSOES_PERMITIDAS, "max_pdf_mb": sc.MAX_MB_PDF}
 
 
@@ -42,6 +42,18 @@ def limpar(dados):
 
 def resumo_rascunho(dados):
     return sum(1 for v in (dados.get("respostas") or {}).values() if v.get("situacao"))
+
+
+def itens_sem_observacao(dados):
+    """Refs dos itens Parcial/Não sem observacao (regra do padrao: PC e NC exigem descricao objetiva)."""
+    resp, _, _ = limpar(dados)
+    faltam = []
+    for g in sc.GRUPOS:
+        for it in g["itens"]:
+            r = resp.get(it["num"], {})
+            if r.get("situacao") in sc.EXIGE_OBS and not str(r.get("observacao") or "").strip():
+                faltam.append(it["ref"])
+    return faltam
 
 
 def montar_envio(dados):
@@ -85,5 +97,9 @@ def montar_envio(dados):
               "Status da Visita": "Completa" if nao_pre == 0 else "Incompleta",
               "Total de Itens Avaliados": sc.TOTAL_ITENS - nao_pre, "Total OK": cont[sc.OK], "Total Parcial": cont[sc.PARCIAL],
               "Total Não": cont[sc.NAO], "Total N/A": cont[sc.NA], "Total Não Preenchido": nao_pre,
-              "Percentual de OK": pct, "Total de Anexos": total_anexos}
+              "Percentual de OK": pct, "Total de Anexos": total_anexos,
+              "RT de Enfermagem": str(dados.get("rt_enfermagem") or "")[:200], "Gestor da Unidade": str(dados.get("gestor_unidade") or "")[:200],
+              "Perfil da Unidade": str(dados.get("perfil_unidade") or "")[:200],
+              "Horário": str(dados.get("horario") or "")[:20],
+              "Módulos Específicos Aplicáveis": ", ".join(m for m in (dados.get("modulos") or []) if m in sc.MODULOS_ESPECIFICOS)}
     return visita, itens, evidencias

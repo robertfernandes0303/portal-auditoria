@@ -21,7 +21,7 @@ def test_visitas_enf():
     vis = pd.DataFrame([{"Código da Visita": "ENF-1", "Hospital": "Juína", "Data da Visita": "30/10/2026", "Responsável pela Visita": "R"}])
     itens = pd.DataFrame([{"Código da Visita": "ENF-1", "Nº do Item": str(n0), "Situação": "Não", "Qtde de Anexos": "2"}])
     v = readers._visitas_de("enf", vis, itens, cat)[0]
-    assert v["unit"] == "Juína" and v["date"] == "2026-10-30" and len(v["items"]) == 43
+    assert v["unit"] == "Juína" and v["date"] == "2026-10-30" and len(v["items"]) == 74
     assert v["items"][0]["s"] == "NC" and v["items"][0]["ev"] == 2 and v["items"][1]["s"] == "NA"
 
 
@@ -52,3 +52,20 @@ def test_load_visita_tecnica_livre_so_global(monkeypatch):
     monkeypatch.setattr(rd.perms, "allowed_unit_ids", lambda store, user: []) if hasattr(rd, "perms") else None
     assert [v["unit"] for v in rd.load(St("admin"), "a@b")["visits"]] == ["Hospital Júlio"]
     assert rd.load(St("gestor"), "a@b")["visits"] == []
+
+
+def test_visita_enf_antiga_le_com_catalogo_legado():
+    """Visita gravada com o checklist de 43 itens continua legivel depois do padrao de 74 itens."""
+    import pandas as pd
+    from forms.enfermagem import catalogo_legado as lg
+    cat = readers._catalogo("enf")
+    vis = pd.DataFrame([{"Código da Visita": "ENF-VELHA", "Hospital": "Juína", "Data da Visita": "30/10/2026", "Responsável pela Visita": "R"},
+                        {"Código da Visita": "ENF-NOVA", "Hospital": "Juína", "Data da Visita": "10/11/2026", "Responsável pela Visita": "R"}])
+    velho = lg.GRUPOS[0]["itens"][0]
+    novo = cat[0][1][0]
+    itens = pd.DataFrame([
+        {"Código da Visita": "ENF-VELHA", "Nº do Item": "1", "Item a Verificar": velho["texto"], "Situação": "Não", "Qtde de Anexos": "0"},
+        {"Código da Visita": "ENF-NOVA", "Nº do Item": "1", "Item a Verificar": novo[1], "Situação": "OK", "Qtde de Anexos": "0"}])
+    a, b = readers._visitas_de("enf", vis, itens, cat)
+    assert len(a["items"]) == 43 and a["items"][0]["name"] == velho["texto"] and a["items"][0]["s"] == "NC"
+    assert len(b["items"]) == 74 and b["items"][0]["name"] == novo[1] and b["items"][0]["s"] == "C"

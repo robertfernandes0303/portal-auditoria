@@ -47,7 +47,7 @@ def handle(ctx, act, pl):
         if ach == be.ERRO_VERIFICACAO_RASCUNHO:
             return {**base, "kind": "form_hospital", "ok": True, "estado": "erro"}
         if ach:
-            return {**base, "kind": "form_hospital", "ok": True, "estado": "lista", "lista": [_resumo(r) for r in ach]}
+            return {**base, "kind": "form_hospital", "ok": True, "estado": "lista", "codigo": lg.novo_codigo(h), "lista": [_resumo(r) for r in ach]}
         return {**base, "kind": "form_hospital", "ok": True, "estado": "novo", "codigo": lg.novo_codigo(h)}
     if act == "form_load":
         r = be.carregar_rascunho_codigo(str(pl.get("codigo") or ""))
@@ -99,6 +99,9 @@ def handle(ctx, act, pl):
             visita, itens, evid = lg.montar_envio(d)
         except Exception:
             return {"kind": "form_submit", "ok": False, "msg": "Dados da visita inválidos."}
+        faltam_obs = lg.itens_sem_observacao(d)
+        if faltam_obs:
+            return {"kind": "form_submit", "ok": False, "msg": "Itens Parcialmente conforme ou Não conforme precisam de observação. Faltam: " + ", ".join(faltam_obs[:20])}
         if visita["Total Não Preenchido"] and not pl.get("forcado"):
             return {"kind": "form_submit", "ok": False, "msg": "Há itens sem resposta. Revise ou envie incompleta."}
         ok, modo, msg = be.salvar_auditoria(visita, itens, evid)

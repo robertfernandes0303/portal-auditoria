@@ -5,7 +5,11 @@ from forms.enfermagem import logic
 
 
 def test_catalogo():
-    assert len(logic.catalogo()) == 11 and logic.config()["total"] == 43
+    assert len(logic.catalogo()) == 8 and logic.config()["total"] == 74
+    assert [len(g["itens"]) for g in logic.catalogo()] == [10, 10, 11, 10, 8, 10, 5, 10]
+    nums = [i["num"] for g in logic.catalogo() for i in g["itens"]]
+    assert nums == list(range(1, 75))
+    assert logic.config()["rotulos"]["Parcial"] == "Parcialmente conforme" and "CME" in logic.config()["modulos"]
 
 
 def test_montar_envio_totais():
@@ -16,7 +20,7 @@ def test_montar_envio_totais():
          "anexos": {}, "previsto_informado": {}}
     visita = logic.montar_envio(d)[0]
     assert visita["Total OK"] == 1 and visita["Total Não"] == 1
-    assert visita["Total Não Preenchido"] == 40
+    assert visita["Total Não Preenchido"] == 71
     assert str(visita["Percentual de OK"]).startswith("50")
 
 
@@ -46,3 +50,22 @@ def test_upa_envio():
     assert visita["Total Verificados"] == 1 and visita["Total Não se Aplica"] == 1 and visita["Total Não Verificados"] == 1
     assert visita["Total Não Preenchido"] == 104 and visita["Horário"] == "09:30" and len(secoes) == 1
     assert set(visita) == set(su.COLUNAS_VISITA) and set(itens[0]) == set(su.COLUNAS_ITEM)
+
+
+def test_novos_campos_e_obs_obrigatoria():
+    from forms.enfermagem import schema as sc
+    d = {"codigo_visita": "ENF-X-20261110-ab12", "hospital": "H", "responsavel_visita": "R", "data_visita": "2026-11-10",
+         "rt_enfermagem": "Ana", "gestor_unidade": "Beto", "perfil_unidade": "UPA 24h", "horario": "09:30",
+         "modulos": ["CME", "UTI", "Inexistente"],
+         "respostas": {1: {"situacao": "Parcial"}, 2: {"situacao": "Não", "observacao": "sem registro"}, 3: {"situacao": "OK"}},
+         "anexos": {}}
+    assert logic.itens_sem_observacao(d) == ["1"]
+    d["respostas"][1]["observacao"] = "escala incompleta"
+    assert logic.itens_sem_observacao(d) == []
+    visita, itens, _ = logic.montar_envio(d)
+    assert set(visita) == set(sc.COLUNAS_VISITA) and set(itens[0]) == set(sc.COLUNAS_ITEM)
+    assert visita["RT de Enfermagem"] == "Ana" and visita["Gestor da Unidade"] == "Beto" and visita["Perfil da Unidade"] == "UPA 24h"
+    assert visita["Horário"] == "09:30" and visita["Módulos Específicos Aplicáveis"] == "CME, UTI"
+    # PC conta como NC: OK=1, Parcial=1, Não=1 -> 1/3
+    assert visita["Total Parcial"] == 1 and str(visita["Percentual de OK"]).startswith("33")
+    assert itens[0]["Ref."] == "1" and itens[73]["Ref."] == "74"

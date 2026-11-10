@@ -213,15 +213,30 @@ COLS = {  # coluna da unidade, do responsável e do nº do item/estado em cada f
 }
 
 
+def _catalogo_visita(form, cat, textos):
+    """Enfermagem: visitas gravadas antes do padrao de 10/11/2026 (43 itens) sao lidas com o catalogo
+    anterior; o texto do item gravado na planilha decide (sem nenhum texto em comum com o catalogo atual => antigo)."""
+    if form != "enf" or not textos:
+        return cat
+    atuais = {t for _, itm in cat for _, t in itm}
+    if textos & atuais:
+        return cat
+    from forms.enfermagem import catalogo_legado as lg
+    return [(g["nome"], [(i["num"], i["texto"]) for i in g["itens"]]) for g in lg.GRUPOS]
+
+
 def _visitas_de(form, vis, itens, cat):
     ucol, rcol, ncol, scol = COLS[form]
     out = []
     if vis is None or vis.empty or "Código da Visita" not in vis:
         return out
     por_cod = {}
+    textos_cod = {}
     if scol and not itens.empty and ncol in itens and scol in itens:
         for cod, grp in itens.groupby("Código da Visita"):
             m = {}
+            if form == "enf" and "Item a Verificar" in grp:
+                textos_cod[cod] = {str(t).strip() for t in grp["Item a Verificar"]}
             for _, r in grp.iterrows():
                 try:
                     n = int(float(r[ncol]))
@@ -237,8 +252,9 @@ def _visitas_de(form, vis, itens, cat):
             continue
         resp = por_cod.get(cod, {})
         its = []
+        cat_v = _catalogo_visita(form, cat, textos_cod.get(cod))
         if scol:
-            for gi, (gn, itm) in enumerate(cat):
+            for gi, (gn, itm) in enumerate(cat_v):
                 for n, nome in itm:
                     s, ev, ob = resp.get(n, (None, "0", ""))
                     try:

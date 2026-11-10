@@ -663,7 +663,7 @@ function viewHome(){
   var cards=Object.keys(MODS).filter(function(k){return scopedVisits().some(function(v){return v.mod===k})}).map(function(k){
     var m=MODS[k], vs=scopedVisits().filter(function(v){return v.mod===k}), lt=latest(vs), p=agg(lt);
     return '<article class="card mod"><div class="ic">'+ic(m.ic)+'</div><div><h3>'+m.name+'</h3></div><p>'+m.desc+'</p>'+
-    '<div class="st">'+(k==='sesmt'?'<span class="pill na">Pendente</span>':'<span class="muted num" style="font-size:12.5px">'+vs.length+' visitas</span>'+pill(p)+'<span class="num" style="font-weight:800">'+fmt(p)+'</span>')+'</div><a class="btn sec" href="#visitas" data-fmod="'+k+'">Ver visitas concluídas</a></article>'
+    '<div class="st">'+(k==='sesmt'&&!vs.length?'<span class="pill na">Pendente</span>':'<span class="muted num" style="font-size:12.5px">'+vs.length+' visitas</span>'+pill(p)+'<span class="num" style="font-weight:800">'+fmt(p)+'</span>')+'</div><a class="btn sec" href="#visitas" data-fmod="'+k+'">Ver visitas concluídas</a></article>'
   }).join('');
   var og=ONGOING.filter(function(o){return MODS[o.mod]&&(MODS[o.mod].free||(inScope(o.unit)&&unitOK(o.unit)))}).slice(0,(HOSTED&&!S.ogall)?5:999).map(function(o){
     return '<div class="li"><div><b>'+MODS[o.mod].name+'</b><span class="note" style="display:block">'+esc(o.unit)+(HOSTED?' · '+(o.resp?esc(o.resp)+' · ':'')+'atualizado em '+esc(o.since)+' · '+o.feitos+' de '+o.total+' itens':' · iniciada em '+o.since)+'</span></div><div style="display:flex;gap:12px;align-items:center;flex:1 1 220px;justify-content:flex-end"><div class="prog" role="img" aria-label="'+o.pct+'% preenchido"><i style="width:'+o.pct+'%"></i></div><span class="num" style="font-weight:800;width:42px">'+o.pct+'%</span>'+(HOSTED?(canConduct()?'<button class="btn" data-act="ongo" data-m="'+o.mod+'" data-u="'+esc(o.unit)+'" data-c="'+esc(o.codigo||'')+'">Continuar</button>':'<span class="pill" title="Só o Responsável pela visita continua uma visita em andamento">Somente consulta</span>'):'<a class="btn sec" href="'+MODS[o.mod].url+'" target="_blank" rel="noopener">Continuar</a>')+'</div></div>'
@@ -1540,7 +1540,7 @@ function vtLab(o){var f=S.fm,r=f&&f.cfg&&f.cfg.rotulos;return (r&&r[o])||o}
 function vtSem3(){return vtOpc().length===3}
 function vtNoEd(){return S.fm.form==='enf'||S.fm.form==='sesmt'}
 function vtDados(){var d=S.fm.d;return {codigo_visita:d.codigo,hospital:d.hospital,cidade:d.cidade,uf:d.uf,edital:d.edital,responsavel_visita:d.resp,acompanhante:d.acomp,
-  data_visita:d.data,timestamp_inicio:d.ts,respostas:d.r,previsto_informado:d.prev,anexos:d.a,grupos_visitados:d.vis,grupos_concluidos:d.con,anexos_removidos:d.rem,horario:d.hora||'',impactos:d.imp||{},sintese:d.sint||[],pendencias:d.pend||[],obs_finais:d.obsf||'',ponto:{step:S.fm.step,gi:S.fm.gi},cv:S.fm.cv||0}}
+  data_visita:d.data,timestamp_inicio:d.ts,respostas:d.r,previsto_informado:d.prev,anexos:d.a,grupos_visitados:d.vis,grupos_concluidos:d.con,anexos_removidos:d.rem,horario:d.hora||'',rt_enfermagem:d.rt||'',gestor_unidade:d.gestor||'',perfil_unidade:d.perfil||'',modulos:(d.mods||[]).slice(),impactos:d.imp||{},sintese:d.sint||[],pendencias:d.pend||[],obs_finais:d.obsf||'',ponto:{step:S.fm.step,gi:S.fm.gi},cv:S.fm.cv||0}}
 function vtV3(){return MODS[S.fm.form].variant==='v03'}
 function vtApplyLoc(h){var L=unitLoc(h.hospital);if(L){h.cidade=L[0];h.uf=L[1];h.loc=true}else{if(h.loc){h.cidade='';h.uf=''}h.loc=false}}
 function vtEdOn(n){n=String(n||'').trim().toLowerCase();return !UNITS.some(function(u){return String(u).toLowerCase()===n})}
@@ -1582,7 +1582,7 @@ function viewVT(){
     '<div class="sel"><label for="vh-d">Data da visita *</label><input id="vh-d" class="cbi" type="date" max="'+fmNow().iso+'" value="'+esc(h.data)+'" data-vi="h-data"></div>'+
     '<div class="sel"><label for="vh-r">Responsável pela visita *</label><input id="vh-r" class="cbi" type="text" value="'+esc(h.resp)+'" data-vi="h-resp"></div>'+
     '<div class="sel"><label for="vh-a">'+(vtU()?'Acompanhante / função':'Nome de quem acompanhou (hospital)')+'</label><input id="vh-a" class="cbi" type="text" value="'+esc(h.acomp)+'" data-vi="h-acomp"></div>'+
-    ''+(vtU()?'<div class="sel"><label for="vh-hr">Horário da visita</label><input id="vh-hr" class="cbi" type="time" value="'+esc(h.hora||'')+'" data-vi="h-hora"></div>':'')+(vtNoEd()?'':'<div class="sel" id="vh-ew"'+(vtEdOn(h.hospital)?'':' hidden')+'><label for="vh-e">Edital / Processo (unidade em licitação)</label><input id="vh-e" class="cbi" type="text" value="'+esc(h.edital)+'" data-vi="h-edital"></div>')+'</div>'+(ab?'':err)+
+    ''+((vtU()||f.form==='enf')?'<div class="sel"><label for="vh-hr">Horário da visita</label><input id="vh-hr" class="cbi" type="time" value="'+esc(h.hora||'')+'" data-vi="h-hora"></div>':'')+(f.form==='enf'?'<div class="sel"><label for="vh-rt">RT de enfermagem</label><input id="vh-rt" class="cbi" type="text" value="'+esc(h.rt||'')+'" data-vi="h-rt"></div><div class="sel"><label for="vh-gu">Gestor da unidade</label><input id="vh-gu" class="cbi" type="text" value="'+esc(h.gestor||'')+'" data-vi="h-gestor"></div><div class="sel"><label for="vh-pf">Perfil da unidade</label><input id="vh-pf" class="cbi" type="text" value="'+esc(h.perfil||'')+'" data-vi="h-perfil" placeholder="Ex.: UPA 24h, hospital geral, pronto atendimento"></div><div class="sel" style="grid-column:1/-1"><div class="fq" style="margin:2px 0 6px">Módulos específicos aplicáveis (somente quando houver)</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+(f.cfg.modulos||[]).map(function(m){var on=(h.mods||[]).indexOf(m)>-1;return '<label class="chk'+(on?' on':'')+'"><input type="checkbox" data-va="modchk" data-m="'+esc(m)+'" '+(on?'checked':'')+'><span>'+esc(m)+'</span></label>'}).join('')+'</div></div>':'')+(vtNoEd()?'':'<div class="sel" id="vh-ew"'+(vtEdOn(h.hospital)?'':' hidden')+'><label for="vh-e">Edital / Processo (unidade em licitação)</label><input id="vh-e" class="cbi" type="text" value="'+esc(h.edital)+'" data-vi="h-edital"></div>')+'</div>'+(ab?'':err)+
     '<div style="margin-top:16px"><button class="btn" data-va="begin"'+(f.busy?' disabled style="opacity:.6"':'')+'>'+(f.busy?'Verificando…':'Iniciar visita')+'</button></div></section>'}
   if(f.step==='list')return vtHead('')+'<section class="card"><h2 style="margin:0 0 6px">Há visita em andamento para '+esc(f.h.hospital)+'</h2><p class="note" style="margin:0 0 6px">Deseja continuar uma delas?</p>'+f.lista.map(vtSummary).join('')+err+'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn" data-va="startnew">Começar uma nova visita</button><button class="btn sec" data-va="backhead">Voltar</button></div></section>';
   if(f.step==='menu'){
@@ -1638,10 +1638,10 @@ function vtCounts(){var f=S.fm;if(vtU()){var u=vtCountsU();return {np:u.np,anx:u
 function vtLoad(rasc){var d=rasc.dados,f=S.fm;try{var L=JSON.parse(localStorage.getItem('pdraft:'+f.form+':'+d.codigo_visita)||'null');if(L&&L.codigo_visita===d.codigo_visita&&(L.cv||0)>(d.cv||0))d=L}catch(e){}
   var i=function(o){var x={};Object.keys(o||{}).forEach(function(k){x[+k]=o[k]});return x};
   f.d={codigo:d.codigo_visita,hospital:d.hospital||'',cidade:d.cidade||'',uf:d.uf||'',edital:d.edital||'',resp:d.responsavel_visita||'',acomp:d.acompanhante||'',data:d.data_visita||fmNow().iso,ts:d.timestamp_inicio||fmNow().t,
-    r:i(d.respostas),prev:i(d.previsto_informado),a:i(d.anexos),vis:(d.grupos_visitados||[]).slice(),con:(d.grupos_concluidos||[]).slice(),rem:(d.anexos_removidos||[]).slice(),sint:(d.sintese||[]).slice(),pend:(d.pendencias||[]).slice(),obsf:d.obs_finais||'',hora:d.horario||'',imp:Object.assign({},d.impactos||{})};f.step='menu';var p=d.ponto||{};if(p.step==='group'&&f.cat&&f.cat[p.gi]){f.gi=p.gi;f.step='group';f.scrollNext=true}else if((p.step==='sint'&&vtV3())||(p.step==='pend'&&vtV3()))f.step=p.step;f.err='';f.busy=false}
+    r:i(d.respostas),prev:i(d.previsto_informado),a:i(d.anexos),vis:(d.grupos_visitados||[]).slice(),con:(d.grupos_concluidos||[]).slice(),rem:(d.anexos_removidos||[]).slice(),sint:(d.sintese||[]).slice(),pend:(d.pendencias||[]).slice(),obsf:d.obs_finais||'',hora:d.horario||'',rt:d.rt_enfermagem||'',gestor:d.gestor_unidade||'',perfil:d.perfil_unidade||'',mods:(d.modulos||[]).slice(),imp:Object.assign({},d.impactos||{})};f.step='menu';var p=d.ponto||{};if(p.step==='group'&&f.cat&&f.cat[p.gi]){f.gi=p.gi;f.step='group';f.scrollNext=true}else if((p.step==='sint'&&vtV3())||(p.step==='pend'&&vtV3()))f.step=p.step;f.err='';f.busy=false}
 function vtReply(r){var f=S.fm;
   if(r.kind==='form_open'){f.cat=r.catalogo;f.cfg=r.config;f.abertas=r.abertas||[];f.err='';f.step=r.estado==='erro_verificacao'?'blocked':'head';
-    if(!f.h){f.h={hospital:f.unit||'',cidade:'',uf:'',data:fmNow().iso,resp:'',acomp:'',edital:'',hora:''};vtApplyLoc(f.h)}
+    if(!f.h){f.h={hospital:f.unit||'',cidade:'',uf:'',data:fmNow().iso,resp:'',acomp:'',edital:'',hora:'',rt:'',gestor:'',perfil:'',mods:[]};vtApplyLoc(f.h)}
     if(f.auto&&typeof f.auto==='string'&&f.step==='head'){var cc=f.auto;f.auto=null;f.step='loading';f.busy=true;rpc('form_load',{form:f.form,unit:f.unit,codigo:cc})}}
   else if(r.kind==='form_hospital'){f.busy=false;
     if(r.estado==='erro')f.step='blocked';
@@ -1656,7 +1656,7 @@ function vtReply(r){var f=S.fm;
     if(r.ok){(f.d.a[n]=f.d.a[n]||[]).push(r.anexo);vtSave()}else{(f.uerr[n]=f.uerr[n]||[]).push(r.msg||'Falha ao guardar o arquivo.')}}
   else if(r.kind==='form_submit'){f.busy=false;if(r.ok===false&&!r.codigo){f.err=r.msg||'Não foi possível enviar.';return}f.res=r;f.step='done';f.err='';try{localStorage.removeItem('pdraft:'+f.form+':'+f.d.codigo)}catch(e){}}
 }
-function vtNew(codigo){var f=S.fm,h=f.h;vtApplyLoc(h);f.d={codigo:codigo,hospital:h.hospital.trim(),cidade:h.cidade,uf:h.uf,edital:(vtNoEd()||!vtEdOn(h.hospital))?'':h.edital,resp:h.resp.trim(),acomp:h.acomp,data:h.data,ts:fmNow().t,r:{},prev:{},a:{},vis:[],con:[],rem:[],sint:[],pend:[],obsf:'',hora:h.hora||'',imp:{}};f.step='menu';f.err='';f.busy=false;vtSave(true)}
+function vtNew(codigo){var f=S.fm,h=f.h;vtApplyLoc(h);f.d={codigo:codigo,hospital:h.hospital.trim(),cidade:h.cidade,uf:h.uf,edital:(vtNoEd()||!vtEdOn(h.hospital))?'':h.edital,resp:h.resp.trim(),acomp:h.acomp,data:h.data,ts:fmNow().t,r:{},prev:{},a:{},vis:[],con:[],rem:[],sint:[],pend:[],obsf:'',hora:h.hora||'',rt:h.rt||'',gestor:h.gestor||'',perfil:h.perfil||'',mods:(h.mods||[]).slice(),imp:{}};f.step='menu';f.err='';f.busy=false;vtSave(true)}
 function vtPick(num,cam){
   var f=S.fm,i=document.createElement('input');i.type='file';i.style.display='none';
   if(cam){i.accept='image/*';i.setAttribute('capture','environment')}else{i.accept=f.cfg.ext.map(function(e){return '.'+e}).join(',');i.multiple=true}
@@ -1692,6 +1692,7 @@ document.addEventListener('click',function(e){
   else if(act==='open'){f.gi=+a.dataset.i;if(f.d.vis.indexOf(f.gi)<0)f.d.vis.push(f.gi);f.step='group';f.err='';f.notice='';vtSave()}
   else if(act==='fonte'){var nf=+a.dataset.n,rf=f.d.r[nf]||(f.d.r[nf]={}),nw=fmNow().t;rf.fonte=f.cfg.fontes[+a.dataset.k];rf.respondido_em=rf.respondido_em||nw;rf.atualizado_em=nw;vtSave()}
   else if(act==='solo'){f.solo=!f.solo;a.checked=f.solo}
+  else if(act==='modchk'){f.h.mods=f.h.mods||[];var mi=f.h.mods.indexOf(a.dataset.m);if(mi>-1)f.h.mods.splice(mi,1);else f.h.mods.push(a.dataset.m);a.checked=mi<0}
   else if(act==='recover'){f.notice='Consultando o Drive…';rpc('form_recover',{form:f.form,unit:f.d.hospital,codigo:f.d.codigo})}
   else if(act==='sint'){f.step='sint'}
   else if(act==='pend'){f.step='pend'}
@@ -1704,7 +1705,8 @@ document.addEventListener('click',function(e){
   else if(act==='cam'){vtPick(+a.dataset.n,true);return}
   else if(act==='file'){vtPick(+a.dataset.n,false);return}
   else if(act==='rm'){var n2=+a.dataset.n,rm=f.d.a[n2].splice(+a.dataset.x,1)[0];f.d.rem.push(rm.id_arquivo||rm.link||rm.nome);vtSave()}
-  else if(act==='conclude'){var g=f.cat[f.gi],fl=vtItens(g).filter(function(it){return !vtDone(f.d.r[it.num])}).map(function(it){return it.ref});
+  else if(act==='conclude'){var g=f.cat[f.gi],fl=vtItens(g).filter(function(it){return !vtDone(f.d.r[it.num])}).map(function(it){return it.ref}),eo=(f.cfg.exige_obs||[]),fo=vtItens(g).filter(function(it){var r=f.d.r[it.num];return r&&eo.indexOf(r.situacao)>-1&&!String(r.observacao||'').trim()}).map(function(it){return it.ref});
+    if(!fl.length&&fo.length)f.err='Itens classificados como Parcialmente conforme ou Não conforme precisam de observação objetiva. Faltam: '+fo.join(', ');else
     if(fl.length)f.err=(vtU()?'Responda todos os itens (ou marque Não verificado / Não se aplica) antes de concluir. Faltam: ':'Responda a Situação de todos os itens antes de concluir. Faltam: ')+fl.join(', ');else{f.err='';if(f.d.con.indexOf(f.gi)<0)f.d.con.push(f.gi);f.step='menu';vtSave(true)}}
   else if(act==='send'){if(a.disabled)return;f.forced=a.dataset.forced==='1';f.step='review';f.err=''}
   else if(act==='confirm'){if(f.busy)return;f.busy=true;f.err='';clearTimeout(_vtT);rpc('form_submit',{form:f.form,unit:f.d.hospital,dados:vtDados(),forcado:vtCounts().np>0})}

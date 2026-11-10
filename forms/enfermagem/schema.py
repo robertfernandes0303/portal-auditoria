@@ -4,6 +4,7 @@ schema.py - Checklist de Visita Tecnica de Enfermagem (Sao Lucas Instituto)
 
 Catalogo de grupos e itens + constantes + colunas das planilhas.
 
+Padrao vigente desde 10/11/2026 (Checklist Institucional de Acompanhamento da Enfermagem, 74 itens).
 IMPORTANTE: o numero global do item (1..N) e a CHAVE ESTAVEL que liga os dados
 historicos ao catalogo. Nunca renumere; para itens novos, use numeros novos
 (depois do ultimo) mesmo que o item apareca no meio de um grupo (campo "ref"
@@ -24,6 +25,12 @@ PARCIAL = "Parcial"
 NAO = "Não"
 NA = "N/A"
 OPCOES_SITUACAO = [OK, PARCIAL, NAO, NA]
+# Valores gravados continuam OK/Parcial/Não/N/A (compatibilidade com leitores e planilhas);
+# a tela mostra a classificacao do padrao: C, PC, NC, NA.
+ROTULOS = {OK: "Conforme", PARCIAL: "Parcialmente conforme", NAO: "Não conforme", NA: "Não se aplica"}
+# Itens PC e NC exigem observacao objetiva (regra do padrao)
+EXIGE_OBS = [PARCIAL, NAO]
+MODULOS_ESPECIFICOS = ["CME", "Centro Cirúrgico", "UTI", "Pediatria", "Obstetrícia", "Transporte/Ambulância", "Hemoterapia", "Classificação de Risco", "Unidade de Internação"]
 
 # Limites de anexo (evidencia)
 EXTENSOES_PERMITIDAS = ["jpg", "jpeg", "png", "pdf"]
@@ -33,115 +40,98 @@ MAX_MB_PDF = 10
 LADO_MAX_IMAGEM_PX = 1600
 QUALIDADE_JPEG = 80
 
-# (nome do grupo, [(texto do item, previsto no TR / apendices sugerido), ...])
+# (nome do grupo, [(texto do item, ''), ...]) - Checklist Institucional de Acompanhamento da Enfermagem
+# (padrao de 10/11/2026; 74 itens numerados como no PDF, ref = numero do item)
 GRUPOS_BRUTOS = [
-    ('1. Gestão e responsabilidade técnica da enfermagem', [
-        ('Confirmar a existência de enfermeiro responsável técnico (RT) com registro ativo no COREN e a formalização da designação.',
-         'Lei 7.498/1986 e normas COFEN/COREN: serviço de enfermagem sob responsabilidade de enfermeiro habilitado. Confirmar exigência específica do TR.'),
-        ('Verificar a existência de organograma, regimento ou manual do serviço de enfermagem e de POPs atualizados.',
-         'Apêndice/TR: organização técnica e assistencial formalizada. Confirmar no documento do hospital.'),
-        ('Verificar a existência e o funcionamento de comissões ligadas à enfermagem (ex.: padronização, ética, educação permanente).',
-         'A definir conforme TR/hospital.'),
-        ('Verificar a disponibilidade de registro dos profissionais ativos (COREN) e controle de vencimento.',
-         'Resolução COFEN aplicável; confirmar controle in loco.'),
+    ('GESTÃO E RESPONSABILIDADE TÉCNICA', [
+        ('Certidão/registro de Responsabilidade Técnica vigente', ''),
+        ('Regimento do Serviço de Enfermagem atualizado', ''),
+        ('Escala mensal completa, assinada e disponível', ''),
+        ('Dimensionamento da equipe de enfermagem avaliado', ''),
+        ('Cobertura de ausências, férias e afastamentos adequada', ''),
+        ('Enfermeiro presente conforme necessidade assistencial', ''),
+        ('Supervisão dos técnicos/auxiliares evidenciada', ''),
+        ('Reuniões periódicas da enfermagem com registro em ata', ''),
+        ('Indicadores acompanhados e analisados pela RT', ''),
+        ('Plano de ação das não conformidades acompanhado pela RT', ''),
     ]),
-    ('2. Dimensionamento e escalas', [
-        ('Confirmar o quantitativo de enfermeiros por setor e por turno (atual).',
-         'Resolução COFEN 543/2017 (dimensionamento) e quantitativo mínimo do TR, se fixado.'),
-        ('Confirmar o quantitativo de técnicos e auxiliares de enfermagem por setor e por turno (atual).',
-         'Resolução COFEN 543/2017; proporção enfermeiro/técnico conforme perfil assistencial.'),
-        ('Verificar a existência de escalas formalizadas, cobertura de faltas, férias e afastamentos.',
-         'TR: continuidade da assistência e equipe suficiente.'),
-        ('Verificar o vínculo dos profissionais (próprio, terceirizado, cooperativa, plantonista) e o valor praticado por categoria.',
-         'A confirmar; subsidia a proposta.'),
-        ('Verificar o índice de absenteísmo, rotatividade e uso de horas extras ou banco de horas.',
-         'Informação gerencial; sem referência numérica no TR.'),
+    ('SEGURANÇA DO PACIENTE', [
+        ('Identificação segura do paciente', ''),
+        ('Alergias identificadas e sinalizadas', ''),
+        ('Protocolo de prevenção de quedas implantado e aplicado', ''),
+        ('Avaliação de risco de lesão por pressão quando aplicável', ''),
+        ('Segurança na prescrição, preparo e administração de medicamentos', ''),
+        ('Aplicação dos 9 certos na administração de medicamentos', ''),
+        ('Eventos adversos e incidentes notificados', ''),
+        ('Eventos analisados com plano de ação quando necessário', ''),
+        ('Orientação ao paciente/família registrada', ''),
+        ('Alta segura implantada quando aplicável', ''),
     ]),
-    ('3. Pronto atendimento / urgência e emergência', [
-        ('Verificar o acolhimento com classificação de risco: local, protocolo adotado, enfermeiro classificador por turno.',
-         'Política Nacional de Humanização; protocolo de classificação de risco. Confirmar exigência do TR.'),
-        ('Verificar a equipe de enfermagem da sala de emergência/estabilização por turno.',
-         'TR: equipe compatível com o perfil do serviço.'),
-        ('Verificar carrinho de emergência: lacre, checagem periódica, medicamentos e materiais dentro do prazo.',
-         'Apêndice: carros de emergência disponíveis e funcionantes.'),
-        ('Verificar a sala de medicação, observação e procedimentos (curativo, nebulização) quanto a estrutura e rotina de enfermagem.',
-         'Quantitativo de salas previsto no TR, quando houver.'),
+    ('AUDITORIA DA ASSISTÊNCIA E PRONTUÁRIO', [
+        ('Evolução de enfermagem presente e adequada', ''),
+        ('Anotação de enfermagem presente e adequada', ''),
+        ('Identificação e rastreabilidade do profissional', ''),
+        ('Registros datados, legíveis e rastreáveis', ''),
+        ('Prescrição de enfermagem quando aplicável', ''),
+        ('SAE/Processo de Enfermagem quando aplicável', ''),
+        ('Sinais vitais registrados conforme protocolo', ''),
+        ('Administração e checagem de medicamentos', ''),
+        ('Dieta checada conforme prescrição', ''),
+        ('Dispositivos identificados, datados e monitorados', ''),
+        ('Orientações e alta registradas', ''),
     ]),
-    ('4. Internação / enfermarias', [
-        ('Verificar a aplicação da Sistematização da Assistência de Enfermagem (SAE/Processo de Enfermagem) e seus registros.',
-         'Resolução COFEN 358/2009.'),
-        ('Verificar a passagem de plantão estruturada e o registro em prontuário.',
-         'Boas práticas de segurança do paciente.'),
-        ('Verificar a distribuição dos leitos por enfermaria e a relação paciente/profissional.',
-         'Total de leitos e distribuição previstos no TR.'),
-        ('Verificar a rotina de sinais vitais, balanço hídrico e escalas de risco (queda, lesão por pressão).',
-         'Protocolos de segurança do paciente (MS/ANVISA).'),
+    ('URGÊNCIA E EMERGÊNCIA', [
+        ('Carrinho de emergência completo e organizado', ''),
+        ('Lacre e controle de abertura do carrinho', ''),
+        ('Medicamentos de emergência dentro da validade', ''),
+        ('Materiais de emergência dentro da validade', ''),
+        ('Checklist diário do carrinho realizado', ''),
+        ('Desfibrilador testado e operacional', ''),
+        ('Laringoscópio testado e operacional', ''),
+        ('Material de intubação disponível e conferido', ''),
+        ('Oxigênio e dispositivos disponíveis e funcionantes', ''),
+        ('Equipe conhece o fluxo de atendimento às emergências', ''),
     ]),
-    ('5. UTI / cuidados críticos', [
-        ('Confirmar o número de leitos de UTI ativos e a equipe de enfermagem por turno.',
-         'RDC 7/2010 e Resolução COFEN 543/2017; leitos de UTI previstos no TR.'),
-        ('Verificar a existência de enfermeiro coordenador/RT da UTI.',
-         'RDC 7/2010.'),
-        ('Verificar a rotina de cuidados críticos: bundles de prevenção de infecção, balanço hídrico, sedação e ventilação.',
-         'Protocolos assistenciais; confirmar adoção.'),
-        ('Verificar monitores, ventiladores, bombas de infusão e rotina de checagem pela enfermagem.',
-         'Apêndice: equipamentos disponíveis e funcionantes.'),
+    ('MEDICAMENTOS E MATERIAIS', [
+        ('Armazenamento de medicamentos adequado', ''),
+        ('Controle de validade de medicamentos e materiais', ''),
+        ('Multidoses identificadas com data de abertura e validade', ''),
+        ('Medicamentos de alta vigilância identificados e controlados', ''),
+        ('Diluições padronizadas disponíveis', ''),
+        ('Estoque de itens críticos monitorado', ''),
+        ('Ausência de medicamentos/materiais vencidos', ''),
+        ('Controle de temperatura quando aplicável', ''),
     ]),
-    ('6. Centro cirúrgico / RPA / CME (interface de enfermagem)', [
-        ('Verificar a equipe de enfermagem do centro cirúrgico (circulante, instrumentador) por turno.',
-         'TR: equipe compatível com o perfil e metas cirúrgicas.'),
-        ('Verificar a aplicação da lista de verificação de cirurgia segura.',
-         'Protocolo de Cirurgia Segura (MS/ANVISA).'),
-        ('Verificar a equipe e a capacidade da RPA, com monitorização e rotina de alta da sala.',
-         'Vagas/leitos de RPA previstos no TR.'),
-        ('Verificar a interface com a CME: rastreabilidade de materiais, rotina de entrega e recebimento.',
-         'RDC 15/2012.'),
+    ('PREVENÇÃO E CONTROLE DE INFECÇÕES', [
+        ('Higienização das mãos conforme boas práticas', ''),
+        ('Preparação alcoólica disponível nos pontos necessários', ''),
+        ('Uso adequado de EPIs', ''),
+        ('Precauções padrão e específicas implantadas', ''),
+        ('Técnica asséptica nos procedimentos invasivos', ''),
+        ('Limpeza/desinfecção de equipamentos assistenciais', ''),
+        ('Equipos, almotolias e frascos identificados', ''),
+        ('Bundles aplicáveis implantados e monitorados', ''),
+        ('Limpeza terminal registrada quando aplicável', ''),
+        ('Interface com SCIH/CCIH e acompanhamento de IRAS quando aplicável', ''),
     ]),
-    ('7. Obstetrícia e neonatal', [
-        ('Verificar a equipe de enfermagem (incluindo enfermeiro obstetra, se houver) em pré-parto, parto e pós-parto.',
-         'TR: assistência materno-infantil conforme perfil.'),
-        ('Verificar a assistência imediata ao recém-nascido e a disponibilidade de materiais de reanimação.',
-         'Apêndice: equipamentos de emergência disponíveis.'),
-        ('Verificar a equipe de enfermagem neonatal e a rotina de cuidados e identificação do RN.',
-         'A confirmar conforme perfil do hospital.'),
+    ('EDUCAÇÃO PERMANENTE', [
+        ('Cronograma anual de treinamentos disponível', ''),
+        ('Treinamentos previstos realizados', ''),
+        ('Listas de presença e evidências arquivadas', ''),
+        ('Integração de novos profissionais realizada', ''),
+        ('Treinamentos definidos a partir de incidentes/NC executados', ''),
     ]),
-    ('8. Segurança do paciente e medicação', [
-        ('Verificar o Núcleo de Segurança do Paciente e a notificação de eventos adversos.',
-         'RDC 36/2013; Portaria MS 529/2013.'),
-        ('Verificar a identificação do paciente (pulseira e protocolo).',
-         'Protocolo de identificação do paciente.'),
-        ('Verificar o processo de prescrição, preparo e administração de medicamentos (dupla checagem de alta vigilância).',
-         'Apêndice 1, 2.1: segurança na prescrição, preparo, dispensação e administração.'),
-        ('Verificar a prevenção de quedas e de lesão por pressão (escalas e registro).',
-         'Protocolos de segurança do paciente.'),
-        ('Verificar a higienização das mãos: insumos, adesão e monitoramento.',
-         'Protocolo de higiene das mãos (ANVISA).'),
-    ]),
-    ('9. Biossegurança e controle de infecção', [
-        ('Verificar a disponibilidade de EPI e a rotina de reposição.',
-         'NR-32.'),
-        ('Verificar a vacinação e o acompanhamento de saúde ocupacional da equipe de enfermagem.',
-         'NR-32; PCMSO.'),
-        ('Verificar a segregação e o descarte de resíduos e perfurocortantes nos postos de enfermagem.',
-         'RDC 222/2018 e NR-32.'),
-        ('Verificar a articulação com a CCIH: precauções e isolamentos.',
-         'RDC 36/2013; legislação de CCIH.'),
-    ]),
-    ('10. Materiais, equipamentos e insumos de enfermagem', [
-        ('Verificar a disponibilidade de materiais e insumos de uso diário (curativo, acesso venoso, sondas).',
-         'Apêndice: insumos essenciais disponíveis.'),
-        ('Verificar bombas de infusão, monitores, oxímetros, glicosímetros e aspiradores por setor (quantidade e funcionamento).',
-         'Apêndice 1, 2.3.'),
-        ('Verificar o fluxo de solicitação e dispensação de materiais e medicamentos (farmácia/almoxarifado).',
-         'Apêndice 1, 2.1.'),
-    ]),
-    ('11. Educação permanente, registros e documentação', [
-        ('Verificar o programa de educação permanente, treinamentos e registro de participação.',
-         'TR: equipes qualificadas.'),
-        ('Verificar o tipo de prontuário (eletrônico, físico, híbrido) e a qualidade dos registros de enfermagem.',
-         'Apêndice 1, 2.1: registros rastreáveis.'),
-        ('Verificar os indicadores de enfermagem acompanhados (quedas, LPP, flebite, eventos adversos).',
-         'Apêndice 2: indicadores, quando houver.'),
+    ('INDICADORES DE ENFERMAGEM', [
+        ('Quedas', ''),
+        ('Lesão por pressão', ''),
+        ('Erros/incidentes relacionados a medicamentos', ''),
+        ('Eventos adversos', ''),
+        ('Flebite e complicações de acesso, quando aplicável', ''),
+        ('Perda de dispositivos, quando aplicável', ''),
+        ('Absenteísmo da equipe', ''),
+        ('Treinamentos realizados', ''),
+        ('Conformidade dos prontuários', ''),
+        ('Outros indicadores pertinentes ao perfil da unidade', ''),
     ]),
 ]
 
@@ -152,7 +142,7 @@ for _gi, (_nome, _itens) in enumerate(GRUPOS_BRUTOS, start=1):
     _lista = []
     for _ii, (_texto, _previsto) in enumerate(_itens, start=1):
         _num += 1
-        _lista.append({"num": _num, "ref": f"{_gi}.{_ii}", "texto": _texto, "previsto": _previsto})
+        _lista.append({"num": _num, "ref": str(_num), "texto": _texto, "previsto": _previsto})
     GRUPOS.append({"nome": _nome, "itens": _lista})
 
 TOTAL_ITENS = _num
@@ -163,6 +153,7 @@ COLUNAS_VISITA = [
     "Fim do Preenchimento (Envio)", "Status da Visita", "Total de Itens Avaliados",
     "Total OK", "Total Parcial", "Total Não", "Total N/A", "Total Não Preenchido",
     "Percentual de OK", "Total de Anexos",
+    "RT de Enfermagem", "Gestor da Unidade", "Perfil da Unidade", "Horário", "Módulos Específicos Aplicáveis",
 ]
 
 COLUNAS_ITEM = [
