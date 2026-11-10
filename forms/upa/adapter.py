@@ -3,7 +3,7 @@ import base64
 import binascii
 import threading
 from core.api import Rejected
-from core.forms_api import safe
+from core.forms_api import safe, fill_loc
 from . import logic as lg, schema as sc, sheets_backend as be, evidencias as ev
 
 MAX_B64 = 18 * 1024 * 1024  # ~13 MB binário (PDF até 10 MB; fotos já chegam reduzidas)
@@ -21,6 +21,13 @@ def _visivel(ctx, hospital):
 def _resumo(r):
     return {"codigo": r["codigo"], "hospital": r["hospital"], "responsavel": r["responsavel"], "atualizado_em": r["atualizado_em"],
             "corrompido": r["corrompido"], "feitos": 0 if r["corrompido"] else lg.resumo_rascunho(r["dados"] or {})}
+
+
+def aquecer(ctx):
+    """Chamado ao subir o servidor (core/host.py): deixa a planilha e os rascunhos prontos em memória."""
+    m = _mapping(ctx)
+    be._carregar_mapeamento = lambda: m
+    be.aquecer()
 
 
 def handle(ctx, act, pl):
@@ -50,7 +57,7 @@ def handle(ctx, act, pl):
             return {**base, "kind": "form_load", "ok": False, "msg": "Visita não encontrada ou sem acesso."}
         return {**base, "kind": "form_load", "ok": True, "rascunho": {"atualizado_em": r["atualizado_em"], "dados": r["dados"]}}
     if act == "form_save":
-        d = pl.get("dados") or {}
+        d = fill_loc(pl.get("dados") or {})
         if not d.get("codigo_visita"):
             raise Rejected("Visita sem código.")
         ctx.require_unit(str(d.get("hospital", "")).strip(), free=True)
@@ -90,7 +97,7 @@ def handle(ctx, act, pl):
         return {**base, "kind": "form_recover", "ok": True, "na_pasta": r["na_pasta"], "novos": r["novos"],
                 "rascunho": (be.carregar_rascunho_codigo(str(pl.get("codigo"))) or {}).get("dados")}
     if act == "form_submit":
-        d = pl.get("dados") or {}
+        d = fill_loc(pl.get("dados") or {})
         hosp = str(d.get("hospital", "")).strip()
         ctx.require_unit(hosp, free=True)
         if not hosp or not str(d.get("responsavel_visita", "")).strip() or not d.get("codigo_visita"):

@@ -116,7 +116,7 @@ def _calcular(store, mail, user, k, erros):
     out = []
     falhou = False
     del PROF[:]
-    for key in ("aud", "enf", "v03", "upa"):
+    for key in ("aud", "enf", "sesmt", "v03", "upa"):
         if not FORMS.get(key, {}).get("ready"):
             continue
         _t = time.perf_counter()

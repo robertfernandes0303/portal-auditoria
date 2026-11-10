@@ -34,8 +34,24 @@ def _aquecer(store):
         if mail:
             readers.load(store, mail)
             andamento.listar(store, mail)
+            _aquecer_formularios(store, mail)
     except Exception:
         pass
+
+
+def _aquecer_formularios(store, mail):
+    """Visitas técnicas (Enfermagem, Hospital, UPA/PAM): cliente Google, planilha e lista de rascunhos já em memória."""
+    import importlib
+    from core import forms_api
+    from core.catalog import FORMS
+    u = store.user_by_mail(mail)
+    for chave, pkg in forms_api.PKG.items():
+        if FORMS.get(chave, {}).get("kind") != "vt":
+            continue
+        try:
+            importlib.import_module(f"forms.{pkg}.adapter").aquecer(forms_api.Ctx(store, mail, u))
+        except Exception:
+            pass
 
 
 def run():

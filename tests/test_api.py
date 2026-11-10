@@ -168,15 +168,16 @@ def test_plano_quem_edita(store):
     assert plans.save(store, "g@x.com", base)["plan"]["by"]                      # gestor da própria unidade
     assert plans.save(store, "r@x.com", {**base, "acao": "b"})["plan"]["acao"] == "b"   # responsável pela visita (global)
     assert plans.save(store, ADM, base)                                           # administrador
+    assert plans.save(store, "m@x.com", {**base, "acao": "c"})["plan"]["acao"] == "c"   # integrante (quem acompanha a unidade) também preenche
     with pytest.raises(api.Rejected):
-        plans.save(store, "m@x.com", base)                                        # integrante: só consulta
+        plans.save(store, "m@x.com", {**base, "unit": "Aripuanã"})                # integrante só na própria unidade
     with pytest.raises(api.Rejected):
         plans.save(store, "g@x.com", {**base, "unit": "Aripuanã"})                # gestor de outra unidade
     with pytest.raises(api.Rejected):
         plans.save(store, "g@x.com", {**base, "status": "Qualquer"})
     with pytest.raises(api.Rejected):
         plans.save(store, "g@x.com", {**base, "prazo": "31/12/2026"})
-    assert plans.visible(store, "m@x.com")["plan_edit"] == []
+    assert plans.visible(store, "m@x.com")["plan_edit"] == ["Juína"]
     assert plans.visible(store, "g@x.com")["plan_edit"] == ["Juína"]
     assert plans.visible(store, "r@x.com")["plan_edit"] == "all"
 
@@ -192,3 +193,20 @@ def test_admin_inicial_pela_senha_do_secret(tmp_path, monkeypatch):
     importlib.reload(cs)
     st = cs.Store()
     assert st.check_password("robert@isssl.com.br", "SenhaInicial1") and not st.check_password("robert@isssl.com.br", "outra")
+
+
+def test_visitas_em_aberto_so_o_responsavel_conduz(store):
+    """Gestor e Integrante só consultam as visitas em andamento: nenhuma ação dos formulários é aceita (mesmo com a tela Nova visita liberada
+    por ajuste pessoal). Responsável pela visita e Administrador conduzem."""
+    from core import forms_api, perms
+    _user(store, "g@x.com", "gestor", "sel", ["juina"])
+    _user(store, "m@x.com", "membro", "sel", ["juina"])
+    _user(store, "r@x.com", "resp", "all", [])
+    for mail in ("g@x.com", "m@x.com"):
+        store.user_by_mail(mail)["ov"] = {"nova": True}
+        for act in ("form_open", "form_load", "form_save", "form_upload", "form_submit"):
+            with pytest.raises(api.Rejected, match="Responsável pela visita"):
+                forms_api.handle(store, mail, act, {"form": "enf", "codigo": "X"})
+        assert not perms.can_conduct_visit(store, store.user_by_mail(mail))
+    assert perms.can_conduct_visit(store, store.user_by_mail("r@x.com"))
+    assert perms.can_conduct_visit(store, store.user_by_mail(ADM))

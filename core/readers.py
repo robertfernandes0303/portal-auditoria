@@ -71,7 +71,7 @@ def _catalogo(form):
     if form == "aud":
         from forms.institucional import logic
         return [(s["nome"], [(i["num"], i["texto"]) for i in s["itens"]]) for s in logic.catalogo() if s["tipo"] == "checklist"]
-    pkg = {"enf": "enfermagem", "v03": "hospital_v03", "upa": "upa"}[form]
+    pkg = {"enf": "enfermagem", "sesmt": "sesmt", "v03": "hospital_v03", "upa": "upa"}[form]
     import importlib
     logic = importlib.import_module(f"forms.{pkg}.logic")
     return [(g["nome"], [(i["num"], i["texto"]) for i in g["itens"]]) for g in logic.catalogo()]
@@ -85,7 +85,7 @@ def grupos(form):
 # ---------------------------------------------------------------- fontes
 def _arquivo_local(form):
     import importlib
-    pkg = {"aud": "institucional", "enf": "enfermagem", "v03": "hospital_v03", "upa": "upa"}[form]
+    pkg = {"aud": "institucional", "enf": "enfermagem", "sesmt": "sesmt", "v03": "hospital_v03", "upa": "upa"}[form]
     be = importlib.import_module(f"forms.{pkg}.sheets_backend")
     if form == "aud":
         return os.path.join(be.LOCAL_DIR, "Auditoria_Consolidado.xlsx")
@@ -196,15 +196,18 @@ def _estado(form, bruto):
     b = str(bruto or "").strip()
     if form == "aud":
         return {"Conforme": "C", "Não Conforme": "NC", "Não se Aplica": "NA"}.get(b)
+    if form == "sesmt":
+        return {"Conforme": "C", "Não conforme": "NC", "Não se aplica": "NA"}.get(b)
     return {"OK": "C", "Parcial": PARCIAL_COMO, "Não": "NC", "N/A": "NA"}.get(b)
 
 
-OBSCOL = {"aud": "Observações / Evidências", "enf": "Observação", "v03": "Observação", "upa": None}
-ACOMPCOL = {"aud": "Nome de Quem Acompanhou", "enf": "Nome de Quem Acompanhou", "v03": "Nome de Quem Acompanhou", "upa": "Acompanhante / função"}
+OBSCOL = {"aud": "Observações / Evidências", "enf": "Observação", "sesmt": "Observação", "v03": "Observação", "upa": None}
+ACOMPCOL = {"aud": "Nome de Quem Acompanhou", "enf": "Nome de Quem Acompanhou", "sesmt": "Nome de Quem Acompanhou", "v03": "Nome de Quem Acompanhou", "upa": "Acompanhante / função"}
 
 COLS = {  # coluna da unidade, do responsável e do nº do item/estado em cada formulário
     "aud": ("Unidade", "Responsável pela Visita", "Nº do Item", "Resposta"),
     "enf": ("Hospital", "Responsável pela Visita", "Nº do Item", "Situação"),
+    "sesmt": ("Unidade", "Responsável pela Visita", "Nº do Item", "Situação"),
     "v03": ("Hospital", "Responsável pela Visita", "Nº do Item", "Situação"),
     "upa": ("Unidade", "Visitantes", "ID", None),
 }

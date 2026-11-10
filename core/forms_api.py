@@ -4,9 +4,9 @@ forms/<pasta>/adapter.py com handle(ctx, act, pl); aqui ficam permissão, escopo
 import importlib
 from core import perms, drive
 from core.api import Rejected
-from core.catalog import FORMS
+from core.catalog import FORMS, unit_loc
 
-PKG = {"aud": "institucional", "enf": "enfermagem", "v03": "hospital_v03", "upa": "upa"}
+PKG = {"aud": "institucional", "enf": "enfermagem", "sesmt": "sesmt", "v03": "hospital_v03", "upa": "upa"}
 
 
 class Ctx:
@@ -42,10 +42,19 @@ def handle(store, mail, act, pl):
     if key not in PKG or not FORMS.get(key, {}).get("ready"):
         raise Rejected("Formulário ainda não está disponível no portal.")
     u = store.user_by_mail(mail)
-    if not u or not u.get("active", True) or not perms.can(store, u, "nova"):
-        raise Rejected("Sem permissão para registrar visitas.")
+    if not u or not u.get("active", True) or not perms.can_conduct_visit(store, u):
+        raise Rejected("Somente o perfil Responsável pela visita (ou Administrador) registra, edita ou continua visitas. Você pode consultar as visitas em andamento no Início.")
     mod = importlib.import_module(f"forms.{PKG[key]}.adapter")
     return mod.handle(Ctx(store, mail, u), act, pl)
+
+
+def fill_loc(d):
+    """Unidade cadastrada: cidade e UF vêm do cadastro (a interface já preenche, aqui é a garantia no servidor).
+    Nome fora do cadastro (hospital/UPA em licitação): mantém o que foi digitado."""
+    loc = unit_loc(d.get("hospital"))
+    if loc:
+        d["cidade"], d["uf"] = loc
+    return d
 
 
 def safe(fn, *a):

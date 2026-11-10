@@ -30,5 +30,14 @@ def allowed_unit_ids(store, user):
     return [i for i in ids if i in set(user.get("units") or [])]
 
 
+# Perfis que registram e continuam visitas (incluindo as em aberto). Gestor e Integrante da unidade só consultam as visitas em andamento.
+CONDUZ_VISITA = ("admin", "resp")
+
+
 def can_open_new_visit(store, user):
     return can(store, user, "nova")
+
+
+def can_conduct_visit(store, user):
+    """Registrar, editar, continuar e enviar visitas: só Responsável pela visita (e Administrador/CDQ), com a tela Nova visita."""
+    return can(store, user, "nova") and user["role"] in CONDUZ_VISITA

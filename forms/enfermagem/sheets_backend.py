@@ -163,10 +163,42 @@ def _resolver_planilha_id(cliente, mapping):
     return sheet_id
 
 
+# Velocidade da 1a abertura: cada passo do formulario (abrir, escolher unidade, retomar) lia a aba de rascunhos inteira e reabria a planilha.
+# Agora a planilha e a aba ficam em memoria e a lista de rascunhos vale por TTL_LISTA segundos (zerada a cada gravacao ou erro).
+TTL_LISTA = 5.0
+TTL_ABA = 600.0
+_CACHE_PLAN = {"chave": None, "obj": None}
+_CACHE_LISTA = {"t": 0.0, "v": None, "chave": None, "aba": None, "aba_t": 0.0}
+
+
+def _invalidar_lista():
+    _CACHE_LISTA.update(t=0.0, v=None)
+
+
+def _invalidar_tudo():
+    _CACHE_PLAN.update(chave=None, obj=None)
+    _CACHE_LISTA.update(t=0.0, v=None, aba=None, aba_t=0.0)
+
+
 def _abrir_planilha():
     mapping = _carregar_mapeamento()
     cliente = _obter_cliente()
-    return cliente.open_by_key(_resolver_planilha_id(cliente, mapping))
+    sid = _resolver_planilha_id(cliente, mapping)
+    if _CACHE_PLAN["obj"] is not None and _CACHE_PLAN["chave"] == sid:
+        return _CACHE_PLAN["obj"]
+    obj = cliente.open_by_key(sid)
+    _CACHE_PLAN.update(chave=sid, obj=obj)
+    return obj
+
+
+def _aba_listagem():
+    """Aba de rascunhos para leitura (None se ainda nao existe; nesse caso nao guarda em cache)."""
+    import time
+    if _CACHE_LISTA["aba"] is not None and time.time() - _CACHE_LISTA["aba_t"] < TTL_ABA:
+        return _CACHE_LISTA["aba"]
+    aba = _aba_se_existe(_abrir_planilha(), ABA_RASCUNHO)
+    _CACHE_LISTA.update(aba=aba, aba_t=time.time())
+    return aba
 
 
 def _aba(planilha, titulo, colunas):
@@ -420,6 +452,7 @@ _TRAVA_FILA = threading.Lock()
 def _limpar_cache_rascunho():
     _CACHE_RASC["aba"] = None
     _CACHE_RASC["linhas"] = {}
+    _invalidar_lista()
 
 
 def _aba_rascunho():
@@ -451,7 +484,14 @@ def _montar_linha(codigo, hospital, responsavel, dados, agora):
     return [codigo, hospital, chave_hospital(hospital), responsavel, agora] + blocos
 
 
-def _gravar_rascunho_google(codigo, hospital, responsavel, dados, agora):
+def _gravar_rascunho_google(*a, **k):
+    try:
+        return _gravar_rascunho_google_impl(*a, **k)
+    finally:
+        _invalidar_lista()
+
+
+def _gravar_rascunho_google_impl(codigo, hospital, responsavel, dados, agora):
     """Le o que ja esta gravado, mescla com `dados` e grava. Devolve os dados efetivamente gravados."""
     import time
     from gspread.utils import rowcol_to_a1
@@ -571,15 +611,24 @@ def _todos_rascunhos():
     """Lista de entradas de TODOS os rascunhos. Levanta excecao se nao conseguir ler."""
     mapping = _carregar_mapeamento()
     if _usa_google(mapping):
-        aba = _aba_se_existe(_abrir_planilha(), ABA_RASCUNHO)
-        if aba is None:
-            return []
-        saida = []
-        for linha in aba.get_all_values()[1:]:
-            linha = linha + [""] * 6
-            if linha[0]:
-                saida.append(_entrada(linha[0], linha[1], linha[3], linha[4], "".join(linha[5:])))
-        return saida
+        import time
+        chave = mapping.get("planilha_id") or mapping.get("pasta_planilha")
+        if _CACHE_LISTA["v"] is not None and _CACHE_LISTA["chave"] == chave and time.time() - _CACHE_LISTA["t"] < TTL_LISTA:
+            return list(_CACHE_LISTA["v"])
+        try:
+            aba = _aba_listagem()
+            if aba is None:
+                return []
+            saida = []
+            for linha in aba.get_all_values()[1:]:
+                linha = linha + [""] * 6
+                if linha[0]:
+                    saida.append(_entrada(linha[0], linha[1], linha[3], linha[4], "".join(linha[5:])))
+        except Exception:
+            _invalidar_tudo()
+            raise
+        _CACHE_LISTA.update(t=time.time(), v=saida, chave=chave)
+        return list(saida)
     saida = []
     if os.path.isdir(LOCAL_DIR):
         for nome in sorted(os.listdir(LOCAL_DIR)):
@@ -593,6 +642,15 @@ def _todos_rascunhos():
                     saida.append({"codigo": nome[9:-5], "hospital": "", "responsavel": "",
                                   "atualizado_em": "", "dados": None, "corrompido": True})
     return saida
+
+
+def aquecer():
+    """Na subida do servidor: carrega o cliente Google, abre a planilha e le os rascunhos uma vez, para a 1a pessoa nao esperar. Nunca lanca excecao."""
+    try:
+        if _usa_google(_carregar_mapeamento()):
+            _todos_rascunhos()
+    except Exception:
+        _invalidar_tudo()
 
 
 def listar_rascunhos_abertos():

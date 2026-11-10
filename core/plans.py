@@ -1,7 +1,7 @@
 """Plano de ação: cada ação nasce de uma não conformidade (item + unidade + formulário). O que é editável aqui —
 ação corretiva, responsável, prazo, situação e observação — fica no cadastro do portal (store.data['plans']).
-Quem pode editar (conferido no servidor): Gestor da unidade (só a sua), Responsável pela visita e Administrador/CDQ.
-Integrante da unidade só consulta."""
+Quem pode editar (conferido no servidor): Administrador/CDQ e Responsável pela visita (o auditor, todas as unidades), e quem acompanha
+a unidade — Gestor e Integrante da unidade (e perfis personalizados com a tela Plano de ação) — somente nas unidades do seu acesso."""
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -18,10 +18,8 @@ def _quem_edita(store, user):
         return []
     if user["role"] in ("admin", "resp"):
         return None
-    if user["role"] == "gestor":
-        names = {u["id"]: u["nome"] for u in store.units(only_active=False)}
-        return [names[i] for i in perms.allowed_unit_ids(store, user) if i in names]
-    return []
+    names = {u["id"]: u["nome"] for u in store.units(only_active=False)}
+    return [names[i] for i in perms.allowed_unit_ids(store, user) if i in names]
 
 
 def _visiveis(store, user):
