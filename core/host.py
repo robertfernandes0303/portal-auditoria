@@ -29,7 +29,8 @@ _WARM = {"feito": False}
 def _aquecer(store):
     """Ao subir o servidor, já lê as planilhas em segundo plano: a primeira pessoa a entrar não espera a leitura fria."""
     try:
-        from core import readers, andamento
+        from core import readers, andamento, gquota
+        gquota.modo_fundo()
         mail = next((u["mail"] for u in store.users() if u.get("active", True) and (u.get("role") == "admin" or u.get("scope") == "all")), None)
         if mail:
             readers.load(store, mail)

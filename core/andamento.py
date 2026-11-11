@@ -100,6 +100,8 @@ def listar(store, mail, erros=None):
         if novo:
             def _bg():
                 try:
+                    from core import gquota
+                    gquota.modo_fundo()
                     _calcular(store, mail, user, k, None)
                 except Exception:
                     pass

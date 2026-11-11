@@ -1248,7 +1248,7 @@ function onRender(args){
     if(r.kind==='pw_resume'){if(r.ok)tokSet(r.token);else{tokDel();S.resuming=false;render()}}
     if(r.kind==='login'||r.kind==='dev_login'||r.kind==='pw_login'){S.lgerr=r.ok?'':(r.msg||'Não foi possível entrar.')}
     if(r.kind==='save'){S.ctesting=false;if(r.ok){if(S.cdirty!==undefined)S.cdirty=false;S.cmsg=r.msg||'';S.cmsgbad=false}else{S.pemsg=null;S.cmsg=r.msg||'Não foi possível salvar.';S.cmsgbad=true;S.pe={id:null,draft:null};S.pp={id:null,mode:null,draft:null}}}
-    if(r.kind==='data_load'){applyData(r);if(r.ok)loadOngoing(!!window.__fresh);if(r.ok&&r.stale&&(S.stRe||0)<2){S.stRe=(S.stRe||0)+1;setTimeout(function(){loadData(false)},6000)}else if(r.ok)S.stRe=0}
+    if(r.kind==='data_load'){applyData(r);if(r.ok){loadOngoing(!!window.__fresh);setTimeout(function(){loadOngoing(false)},7000)}if(r.ok&&r.stale&&(S.stRe||0)<2){S.stRe=(S.stRe||0)+1;setTimeout(function(){loadData(false)},6000)}else if(r.ok)S.stRe=0}
     if(r.kind==='ongoing_load')applyOngoing(r);
     if(r.kind==='visit_discard'){window.__disc=r;if(r.ok){for(var di=ONGOING.length-1;di>=0;di--)if(ONGOING[di].codigo===r.codigo&&ONGOING[di].mod===r.form)ONGOING.splice(di,1);try{snapDelAll()}catch(e){}loadOngoing(true);if(HOSTED)render()}}
     if(r.kind==='set_password'||r.kind==='remove_password'){if(r.ok){var mm=String(r.mail||'').toLowerCase(),ix=PWSET.indexOf(mm);if(r.kind==='set_password'){if(ix<0)PWSET.push(mm);S.pwmsg='Senha temporária definida'+(S.pwlast?': '+S.pwlast+'. Informe à pessoa: ela precisará criar a própria senha no primeiro acesso.':'.')}else{if(ix>-1)PWSET.splice(ix,1);S.pwmsg='Senha removida.'}}else S.pwmsg=r.msg||'Não foi possível.';S.pwlast=''}
@@ -1502,7 +1502,7 @@ document.addEventListener('click',function(e){
   var a=e.target.closest('[data-fa]'); if(!a)return; var f=S.fm, act=a.dataset.fa, y=window.scrollY;
   if(act==='start'){fmStart(S.nv.mod,S.nv.unit);return}
   if(!f)return;
-  if(act==='leave'){fmSave(true);S.fm=null;return}
+  if(act==='leave'){fmSave(true);S.fm=null;setTimeout(function(){loadOngoing(true)},1500);return}
   if(act==='again'){S.fm=null;S.nv={mod:null,unit:''};return}
   e.preventDefault();
   if(act==='reopen'){f.step='loading';rpc('form_open',{form:f.form,unit:f.unit})}
@@ -1677,7 +1677,7 @@ function vtUpload(num,files){var f=S.fm;f.pend=f.pend||{};f.uerr=f.uerr||{};
   render()}
 document.addEventListener('click',function(e){
   var a=e.target.closest('[data-va]');if(!a)return;var f=S.fm,act=a.dataset.va,y=window.scrollY;if(!f)return;
-  if(act==='leave'){vtSave(true);S.fm=null;return}
+  if(act==='leave'){vtSave(true);S.fm=null;setTimeout(function(){loadOngoing(true)},1500);return}
   if(act==='again'){S.fm=null;S.nv={mod:null,unit:''};return}
   e.preventDefault();
   if(act==='reopen'){f.step='loading';rpc('form_open',{form:f.form,unit:f.unit})}

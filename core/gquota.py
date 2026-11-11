@@ -5,14 +5,21 @@ import time
 from collections import deque
 
 LIMITE = 45          # chamadas por janela (margem sob o limite de 60/min)
+LIMITE_FUNDO = 30    # leituras em segundo plano usam só parte da janela: o resto fica livre para o que a pessoa está fazendo
 JANELA = 60.0        # segundos
 TENTATIVAS = 4
 ESPERA_429 = 8.0     # segundos (cresce a cada tentativa)
 
 _lock = threading.Lock()
+_tl = threading.local()
 _marcas = deque()
 _aplicado = False
 _stats = {"calls": 0, "wait": 0.0, "r429": 0, "http": 0.0}
+
+
+def modo_fundo():
+    """Marca a thread atual como trabalho em segundo plano (atualização de cache): cede vaga à interação."""
+    _tl.fundo = True
 
 
 def snapshot():
@@ -28,7 +35,7 @@ def aguardar_vaga(agora=time.monotonic, dormir=time.sleep):
             t = agora()
             while _marcas and t - _marcas[0] >= JANELA:
                 _marcas.popleft()
-            if len(_marcas) < LIMITE:
+            if len(_marcas) < (LIMITE_FUNDO if getattr(_tl, "fundo", False) and LIMITE_FUNDO < LIMITE else LIMITE):
                 _marcas.append(t)
                 _stats["calls"] += 1
                 _stats["wait"] += esperou

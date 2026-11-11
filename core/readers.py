@@ -43,6 +43,8 @@ def _cached(key, fn):
         if novo:
             def _bg():
                 try:
+                    from core import gquota
+                    gquota.modo_fundo()
                     _CACHE[key] = (time.time(), fn())
                 except Exception:
                     pass                    # falhou: mantém o último dado bom

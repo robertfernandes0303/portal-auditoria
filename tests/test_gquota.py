@@ -78,3 +78,24 @@ def test_google_falha_mas_reaproveita_ultimo_dado(monkeypatch):
     with pytest.raises(RuntimeError):
         readers._cached(("novo", "z"), falha)
     readers.limpar_cache()
+
+
+def test_fundo_cede_vaga_a_interacao(monkeypatch):
+    import threading
+    monkeypatch.setattr(gquota, "LIMITE", 4)
+    monkeypatch.setattr(gquota, "LIMITE_FUNDO", 2)
+    gquota._marcas.clear()
+    t = {"v": 0.0}
+    esperas = {}
+
+    def fundo():
+        gquota.modo_fundo()
+        esperas["a"] = gquota.aguardar_vaga(lambda: t["v"], lambda s: t.__setitem__("v", t["v"] + s))
+        esperas["b"] = gquota.aguardar_vaga(lambda: t["v"], lambda s: t.__setitem__("v", t["v"] + s))
+        esperas["c"] = gquota.aguardar_vaga(lambda: t["v"], lambda s: t.__setitem__("v", t["v"] + s))   # 3ª: fundo só usa 2 vagas
+
+    th = threading.Thread(target=fundo); th.start(); th.join()
+    assert esperas["a"] == 0 and esperas["b"] == 0 and esperas["c"] > 0
+    gquota._marcas.clear()
+    for _ in range(4):                       # interação (thread principal) ainda tem as 4 vagas
+        assert gquota.aguardar_vaga(lambda: 0.0, lambda s: None) == 0
