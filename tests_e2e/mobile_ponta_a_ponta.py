@@ -1,0 +1,106 @@
+import sys,random
+from playwright.sync_api import sync_playwright
+RUN=str(random.randint(100,999))
+def ok(n,c,x=''):
+    print(('PASS ' if c else 'FAIL ')+n+((' | '+str(x)[:200]) if x else ''),flush=True)
+def mk(p,w,h):
+    b=p.chromium.launch(); c=b.new_context(viewport={'width':w,'height':h},has_touch=True,is_mobile=True,device_scale_factor=2); pg=c.new_page()
+    errs=[];pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8599'); pg.wait_for_timeout(5000)
+    f=pg.frame_locator('iframe')
+    f.locator('#lg-user').fill('t@teste.local'); f.locator('#lg-pass').fill('TesteLocal1'); f.locator('#lg-pass').press('Enter'); pg.wait_for_timeout(3500)
+    return b,pg,f,errs
+fr=lambda pg: pg.frames[-1]
+def overflow(pg): return fr(pg).evaluate("document.documentElement.scrollWidth-document.documentElement.clientWidth")
+def act(pg): return fr(pg).evaluate("(function(){var a=document.activeElement;return a?a.tagName+'#'+(a.id||''):''})()")
+def small(pg): return fr(pg).evaluate("""(function(){var o=[];document.querySelectorAll('button,[role=button],a[data-va],a[data-fa],summary,input[type=checkbox],[aria-checked]').forEach(function(e){var r=e.getBoundingClientRect();if(r.width>0&&r.height>0&&(r.height<30||r.width<30))o.push((e.tagName+'.'+(e.className||'')+' '+(e.textContent||'').trim().slice(0,18)+' '+Math.round(r.width)+'x'+Math.round(r.height)))});return o.slice(0,8)})()""")
+def offscreen(pg): return fr(pg).evaluate("""(function(){var o=[],W=document.documentElement.clientWidth;document.querySelectorAll('.card *,.fit *').forEach(function(e){var r=e.getBoundingClientRect();if(r.width>0&&(r.right>W+2||r.left<-2))o.push(e.tagName+'.'+(e.className||'')+' '+Math.round(r.left)+'-'+Math.round(r.right))});return o.slice(0,5)})()""")
+def start(pg,f,key,unit=None):
+    fr(pg).evaluate("location.hash='#nova'"); pg.wait_for_timeout(600)
+    f.locator('#nv-f').tap(); f.locator(f'[data-act=nvmod][data-v={key}]').tap(); pg.wait_for_timeout(300)
+    if unit:
+        vals=[o.inner_text().strip() for o in f.locator('#nv-unit option').all() if o.inner_text().strip() and not o.inner_text().strip().startswith(('—','Selecione'))]
+        f.locator('#nv-unit').select_option(vals[(int(unit) if str(unit).isdigit() else 0)%len(vals)]); pg.wait_for_timeout(300)
+    f.locator('[data-fa=start]').tap(); pg.wait_for_timeout(3500)
+def typing_check(pg,loc,label,text='texto de teste das observacoes'):
+    loc.tap(); pg.wait_for_timeout(200)
+    n=len(text)
+    pg.keyboard.type(text,delay=60)
+    a=''
+    for k in range(2):
+        pg.wait_for_timeout(4500)
+        a=act(pg); pg.keyboard.type('+',delay=40)
+    v=loc.input_value()
+    ok(label+': foco mantido apos pausas e texto completo', v==text+'++' and a.startswith(('TEXTAREA','INPUT')), (a,v))
+T=sys.argv[1]
+with sync_playwright() as p:
+    if T=='1':
+        b,pg,f,errs=mk(p,393,851)
+        start(pg,f,'enf')
+        ok('cabecalho sem overflow',overflow(pg)<=1,overflow(pg)); print('  off',offscreen(pg),'small',small(pg))
+        f.locator('#vh-h').fill('Hosp Mob '+RUN); f.locator('#vh-r').fill('Aud M')
+        typing_check(pg,f.locator('#vh-rt'),'RT','Enf RT')
+        f.locator('[data-va=modchk]').nth(1).tap(); f.locator('[data-va=begin]').tap(); pg.wait_for_timeout(2500)
+        if f.locator('[data-va=startnew]').count(): f.locator('[data-va=startnew]').tap(); pg.wait_for_timeout(2500)
+        ok('menu sem overflow',overflow(pg)<=1)
+        f.locator('[data-va=open][data-i="0"]').tap(); pg.wait_for_timeout(500)
+        ok('grupo sem overflow',overflow(pg)<=1,offscreen(pg)); print('  small',small(pg))
+        it=f.locator('.fit').nth(0); it.locator('[data-va=ans]').nth(2).tap(); pg.wait_for_timeout(300)
+        sm=it.locator('.vtd summary')
+        if sm.count(): sm.first.tap(); pg.wait_for_timeout(300)
+        typing_check(pg,it.locator('[data-vi=obs]').first,'Obs NC item1','observacao do item 1')
+        it.locator('[data-vi=obs]').first.tap()
+        pg.set_viewport_size({'width':851,'height':393}); pg.wait_for_timeout(1200)
+        a=act(pg); pg.keyboard.type('R',delay=40); v=it.locator('[data-vi=obs]').first.input_value()
+        ok('rotacao retrato->paisagem mantem foco',a.startswith('TEXTAREA') and v.endswith('R'),(a,v[-5:])); ok('paisagem sem overflow',overflow(pg)<=1,overflow(pg))
+        pg.set_viewport_size({'width':393,'height':851}); pg.wait_for_timeout(1200)
+        pg.wait_for_timeout(3000); pg.reload(); pg.wait_for_timeout(6000)
+        start(pg,f,'enf'); pg.wait_for_timeout(1500)
+        L=f.locator('[data-fa=resume],[data-va=load]'); print('  retomar',L.count())
+        if L.count(): L.first.tap(); pg.wait_for_timeout(3000)
+        if f.locator('[data-va=open][data-i="0"]').count(): f.locator('[data-va=open][data-i="0"]').tap(); pg.wait_for_timeout(600)
+        v=f.locator('.fit').nth(0).locator('[data-vi=obs]').first.input_value() if f.locator('.fit').count() else ''
+        ok('texto da observacao persistiu apos recarregar',v.startswith('observacao'),v)
+        ok('sem erros JS',not errs,errs[:3]); b.close()
+    if T=='2':
+        b,pg,f,errs=mk(p,360,740)
+        start(pg,f,'upa')
+        f.locator('#vh-h').fill('UPA Mob '+RUN); f.locator('#vh-r').fill('Aud M'); f.locator('[data-va=begin]').tap(); pg.wait_for_timeout(2500)
+        if f.locator('[data-va=startnew]').count(): f.locator('[data-va=startnew]').tap(); pg.wait_for_timeout(2500)
+        ok('menu sem overflow 360px',overflow(pg)<=1,offscreen(pg))
+        f.locator('[data-va=open][data-i="0"]').tap(); pg.wait_for_timeout(600)
+        ok('grupo sem overflow 360px',overflow(pg)<=1,offscreen(pg)); print('  small',small(pg))
+        c=f.locator('.fit').nth(0)
+        typing_check(pg,c.locator('[data-vi=resp]').first,'Resposta UPA item 1','123456')
+        c.locator('[data-va=fonte][data-k="0"]').tap()
+        c2=f.locator('.fit').nth(1); c2.locator('[data-va=fonte][data-k="3"]').tap()
+        sm=c2.locator('.vtd summary')
+        if sm.count(): sm.first.tap(); pg.wait_for_timeout(300)
+        typing_check(pg,c2.locator('[data-vi=obs]').first,'Obs UPA item 2','visto no local')
+        with pg.expect_file_chooser() as fc: c2.locator('[data-va=file]').first.tap()
+        fc.value.set_files('/tmp/foto.jpg'); pg.wait_for_timeout(4500)
+        ok('anexo adicionado no celular',f.locator('.anx').count()>=1,f.locator('[role=alert]').all_inner_texts())
+        ok('sem overflow apos anexo',overflow(pg)<=1,offscreen(pg))
+        f.locator('#imp').tap(); pg.keyboard.type('impacto longo '*5,delay=15); pg.wait_for_timeout(4500); pg.keyboard.type('!',delay=30)
+        ok('campo Impacto manteve foco',act(pg)=='TEXTAREA#imp',act(pg))
+        ok('sem erros JS',not errs,errs[:3]); b.close()
+    if T=='3':
+        U=str(random.randint(3,9))
+        b,pg,f,errs=mk(p,390,844)
+        start(pg,f,'aud',U); f.locator('#fh-resp').fill('Aud Mob '+RUN); f.locator('[data-fa=begin]').tap(); pg.wait_for_timeout(1000)
+        ok('menu aud sem overflow',overflow(pg)<=1,offscreen(pg))
+        f.locator('[data-fa=open][data-i="1"]').tap(); pg.wait_for_timeout(600)
+        ok('secao aud sem overflow',overflow(pg)<=1,offscreen(pg)); print('  small',small(pg))
+        f.locator('[data-fa=ans][data-n="11"][data-k="1"]').tap(); pg.wait_for_timeout(500)
+        o=f.locator('input[data-fi=obs]').first
+        print('  textareas',f.locator('input[data-fi=obs]').count())
+        if o.count(): typing_check(pg,o,'Obs Institucional','obs institucional')
+        ok('sem overflow apos obs',overflow(pg)<=1)
+        f.locator('[data-fa=menu]').first.tap(); pg.wait_for_timeout(800)
+        f.locator('[data-fa=leave]').tap(); pg.wait_for_timeout(2500)
+        start(pg,f,'aud',U); pg.wait_for_timeout(1500)
+        ok('retomar disponivel',f.locator('[data-fa=resume]').count()==1)
+        f.locator('[data-fa=resume]').tap(); pg.wait_for_timeout(1500); f.locator('[data-fa=open][data-i="1"]').tap(); pg.wait_for_timeout(600)
+        v=f.locator('input[data-fi=obs]').first.input_value() if f.locator('input[data-fi=obs]').count() else ''
+        ok('obs persistiu apos sair e retomar',v.startswith('obs institucional'),v)
+        ok('sem erros JS',not errs,errs[:3]); b.close()

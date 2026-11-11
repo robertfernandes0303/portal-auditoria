@@ -1007,6 +1007,7 @@ function viewPlano(){
 /* ============ roteamento e eventos ============ */
 function route(){return (location.hash||'#').slice(1)}
 function typing(){var a=document.activeElement,rt=document.getElementById('root');return !!(a&&rt&&rt.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='SELECT'||(a.tagName==='INPUT'&&!/^(checkbox|radio|file|button|submit)$/.test(a.type))))}
+function fkey(e){var q='';['fi','vi','pf','c','n','i','g'].forEach(function(k){if(e.dataset&&e.dataset[k]!=null)q+='[data-'+k+'="'+String(e.dataset[k]).replace(/"/g,'')+'"]'});return q?e.tagName.toLowerCase()+q:null}
 function renderSoft(){if(typing()){S._soft=true;return}render()}
 function render(){
   S._soft=false;
@@ -1030,11 +1031,11 @@ function render(){
   else{cur='inicio';body=viewHome()}
   var q=document.getElementById('q'), keep=q&&document.activeElement===q;
   var ae=document.activeElement,fid=null,fs=0,fe=0,fst=0;
-  if(!keep&&ae&&ae.id&&root.contains(ae)&&typing()){fid=ae.id;try{fs=ae.selectionStart;fe=ae.selectionEnd}catch(x){}fst=ae.scrollTop||0}
+  if(!keep&&ae&&root.contains(ae)&&typing()){fid=ae.id?'#'+ae.id:fkey(ae);try{fs=ae.selectionStart;fe=ae.selectionEnd}catch(x){}fst=ae.scrollTop||0}
   root.innerHTML=real(shell(cur,body,(h==='conta'||h==='nova'||h==='form'||h==='permissoes'||h.indexOf('visita-')===0)));
   var nq=document.getElementById('q'); if(nq){nq.value=S.q||''; if(keep){nq.focus();nq.setSelectionRange(nq.value.length,nq.value.length)}}
   window.scrollTo(0,newRoute?0:y0);
-  if(fid&&!newRoute){var fe2=document.getElementById(fid);if(fe2&&!fe2.disabled&&!fe2.readOnly){try{fe2.focus({preventScroll:true});if(fs!=null&&fe2.setSelectionRange&&fe2.type!=='time'&&fe2.type!=='date')fe2.setSelectionRange(fs,fe);fe2.scrollTop=fst}catch(x){}}}
+  if(fid&&!newRoute){var fe2=fid?document.querySelector(fid):null;if(fe2&&!fe2.disabled&&!fe2.readOnly){try{fe2.focus({preventScroll:true});if(fs!=null&&fe2.setSelectionRange&&fe2.type!=='time'&&fe2.type!=='date')fe2.setSelectionRange(fs,fe);fe2.scrollTop=fst}catch(x){}}}
 }
 document.addEventListener('focusout',function(){setTimeout(function(){if(S._soft&&!typing())render()},250)});
 window.addEventListener('hashchange',function(){S.q='';S.fuopen=false;S.fbopen=false;render()});
