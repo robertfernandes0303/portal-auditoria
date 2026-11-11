@@ -235,6 +235,11 @@ button.evb{display:inline-flex;align-items:center;gap:6px;border:1px solid var(-
 .evbig{flex-basis:100%;margin-top:6px}
 .evbig img{width:100%;max-width:560px;height:auto;border-radius:10px;border:1px solid var(--line);display:block}
 .evbig .note{margin-top:4px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.plev{margin:6px 0 12px;padding:12px 14px;border:1px dashed var(--line);border-radius:12px}
+.plev h3{font-size:14px;margin:0 0 4px}
+.plev .evid{margin-top:8px}
+.plev input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.plev label.evb{cursor:pointer}
 .evbig iframe{width:100%;height:420px;border:1px solid var(--line);border-radius:10px}
 .note{font-size:12px;color:var(--muted)}
 .trend{width:100%;height:auto;display:block}
@@ -1033,8 +1038,8 @@ function viewPlano(){
     var rows=(S.pexp[u]?a:a.slice(0,5)).map(function(x){
       return '<div class="act click" tabindex="0" data-go="visita-'+x.latest.id+'"><div><b>'+esc(x.name)+'</b><span class="sm">'+esc(x.gn)+' · '+MODS[x.mod].name+'</span><span class="sm">Aberta na visita de '+fd(x.origin.date)+(x.nc>1?' · não conforme em '+x.nc+' visitas':'')+'</span>'+(x.PL&&x.PL.acao?'<span class="sm"><b>Ação:</b> '+esc(x.PL.acao)+'</span>':'')+(x.PL&&x.PL.obs?'<span class="sm"><b>Obs.:</b> '+esc(x.PL.obs)+'</span>':'')+'</div>'+
       '<div><span class="lbl-s">Evolução nas visitas</span><div class="tls">'+x.seq.map(tl).join('')+'</div></div>'+
-      '<div><span class="lbl-s">Responsável e prazo</span><b>'+x.resp.c+'</b><span class="sm">'+x.resp.n+'</span><span class="sm num">Prazo '+fdate(x.prazo)+'</span><span class="sm">Evidência de fechamento: '+(x.status==='Concluído'?'anexada':'pendente')+'</span></div>'+
-      '<div class="acts">'+stPill(x.status)+'</div></div>'+planEdit(x)}).join('')+(a.length>5?'<button class="btn line" style="margin-top:10px;width:100%" data-act="pexp" data-u="'+esc(u)+'">'+(S.pexp[u]?'Mostrar menos':'Mostrar todas as '+a.length+' ações')+'</button>':'');
+      '<div><span class="lbl-s">Responsável e prazo</span><b>'+x.resp.c+'</b><span class="sm">'+x.resp.n+'</span><span class="sm num">Prazo '+fdate(x.prazo)+'</span><span class="sm">Evidência de conclusão: '+(x.PL&&x.PL.anexos&&x.PL.anexos.length?x.PL.anexos.length+' anexada'+(x.PL.anexos.length>1?'s':''):'sem anexo')+'</span></div>'+
+      '<div class="acts">'+stPill(x.status)+'</div></div>'+planEvid(x)+planEdit(x)}).join('')+(a.length>5?'<button class="btn line" style="margin-top:10px;width:100%" data-act="pexp" data-u="'+esc(u)+'">'+(S.pexp[u]?'Mostrar menos':'Mostrar todas as '+a.length+' ações')+'</button>':'');
     return '<section class="card"><div class="head" style="align-items:center;margin-bottom:6px"><div><h2 style="font-size:18px;margin:0">'+esc(u)+'</h2><span class="note">'+a.length+' ações · '+open+' em aberto'+(ven?' · '+ven+' vencidas':'')+'</span></div></div>'+rows+'</section>'}).join('');
   return '<div class="head"><div><h1>Plano de ação</h1><p>Cada ação nasce de uma não conformidade e acompanha o mesmo formulário e a mesma unidade nas visitas seguintes.'+(HOSTED&&PLAN_EDIT.length?' Você pode editar ação, responsável, prazo e situação.':S.role==='membro'?' Você acompanha as ações da sua unidade em modo de consulta.':S.role==='gestor'?' Como gestor, você acompanha o plano de contingência da sua unidade.':'')+'</p></div></div>'+
   '<div class="grid g4 k"><div class="card kpi"><small>Abertos</small><strong class="num">'+(cnt['Aberto']||0)+'</strong><em>dentro do prazo</em></div><div class="card kpi warn"><small>Em andamento</small><strong class="num">'+(cnt['Em andamento']||0)+'</strong><em>com responsável</em></div><div class="card kpi bad"><small>Vencidos</small><strong class="num">'+(cnt['Vencido']||0)+'</strong><em>prazo expirado</em></div><div class="card kpi ok"><small>Concluídos</small><strong class="num">'+(cnt['Concluído']||0)+'</strong><em>resolvidos em visita seguinte</em></div></div>'+
@@ -1141,7 +1146,7 @@ document.addEventListener('click',function(e){
     else if(act==='ppdelcancel'){S.ppconf=null;render()}
     else if(act==='ppdel'){var dk=S.pp.id;delete ROLES[dk];delete PERFIL[dk];persist();S.pp={id:null,mode:null,draft:null};S.ppconf=null;S.pemsg='Perfil excluído (simulação).';render()}
     else if(act==='nvmod'){S.nv.mod=a.dataset.v;render()}
-    else if(act==='logout'){EVL={};EVF={};S.evo={};S.evbig=null;if(HOSTED){tokDel();snapDelAll();snapPill('');flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
+    else if(act==='logout'){EVL={};EVF={};PEF={};S.peo={};S.pebig=null;S.evo={};S.evbig=null;if(HOSTED){tokDel();snapDelAll();snapPill('');flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
     else if(act==='ongretry'){S.ongErr=false;S.ongLoaded=false;DATA_RETRY=0;loadOngoing(true);render()}
     else if(act==='pexp'){S.pexp[a.dataset.u]=!S.pexp[a.dataset.u];var y6=window.scrollY;render();window.scrollTo(0,y6)}
     else if(act==='lgreset'){e.preventDefault();S.lg='reset';render()}
@@ -1149,7 +1154,7 @@ document.addEventListener('click',function(e){
     else if(act==='sum'){S.sum=(S.sum===a.dataset.v?null:a.dataset.v);var y5=window.scrollY;render();window.scrollTo(0,y5)}
     else if(act==='noop')e.preventDefault();
     else if(act==='hflt'){S.h.flt=a.dataset.v;var y4=window.scrollY;render();window.scrollTo(0,y4)}
-    else if(act==='evshow'){var vv=VISITS.filter(function(x){return x.id===a.dataset.c&&x.mod===a.dataset.m})[0];if(vv){S.evo=S.evo||{};var ek=evKey(vv)+'|'+a.dataset.n;S.evo[ek]=!S.evo[ek];if(S.evo[ek])evAsk(vv,a.dataset.n);var y9=window.scrollY;render();window.scrollTo(0,y9)}}
+    else if(act==='evshow'){var vv=VISITS.filter(function(x){return x.id===a.dataset.c&&x.mod===a.dataset.m})[0];if(vv){S.evo=S.evo||{};var ek=evKey(vv)+'|'+a.dataset.n,was=S.evo[ek];S.evo={};S.evo[ek]=!was;S.evbig=null;if(S.evo[ek])evAsk(vv,a.dataset.n);var y9=window.scrollY;render();window.scrollTo(0,y9)}}
     else if(act==='evbig'){S.evbig=(S.evbig===a.dataset.id?null:a.dataset.id);var y10=window.scrollY;render();window.scrollTo(0,y10)}
     else if(act==='report'){S.rep=a.dataset.id;var y3=window.scrollY;render();window.scrollTo(0,y3)}
     else if(act==='vmod'){S.vm=a.dataset.v;var y8=window.scrollY;render();window.scrollTo(0,y8)}
@@ -1300,6 +1305,8 @@ function onRender(args){
     if(r.kind==='data_load'){applyData(r);if(r.ok){loadOngoing(!!window.__fresh);setTimeout(function(){loadOngoing(false)},7000)}if(r.ok&&r.stale&&(S.stRe||0)<2){S.stRe=(S.stRe||0)+1;setTimeout(function(){loadData(false)},6000)}else if(r.ok)S.stRe=0}
     if(r.kind==='evid_list'){var lk=(r.form||'')+'|'+(r.codigo||'');EVL[lk]=r.ok?{st:'ok',itens:r.itens||{}}:{st:'err',msg:r.msg};
       if(r.ok){VISITS.forEach(function(v){if(evKey(v)===lk&&S.evo)Object.keys(S.evo).forEach(function(q){if(S.evo[q]&&q.indexOf(lk+'|')===0)evAsk(v,q.slice(lk.length+1))})})}renderSoft()}
+    if(r.kind==='plan_attach'||r.kind==='plan_unattach'){var pk=S.pab;S.pab=null;if(r.ok){PLANS[r.key]=r.plan;S.pamsg=null;var xx=planByKey(r.key);if(xx&&S.peo&&S.peo[r.key])planAsk(xx)}else S.pamsg={k:pk,t:r.msg||'Não foi possível concluir.'};renderSoft()}
+    if(r.kind==='plan_evid_get'){PEF[r.fid]=r.ok?{st:'ok',tipo:r.tipo,mime:r.mime,b64:r.b64}:{st:'err',msg:r.msg};renderSoft()}
     if(r.kind==='evid_get'){EVF[r.fid]=r.ok?{st:'ok',tipo:r.tipo,mime:r.mime,b64:r.b64}:{st:'err',msg:r.msg};renderSoft()}
     if(r.kind==='ongoing_load')applyOngoing(r);
     if(r.kind==='visit_discard'){window.__disc=r;if(r.ok){for(var di=ONGOING.length-1;di>=0;di--)if(ONGOING[di].codigo===r.codigo&&ONGOING[di].mod===r.form)ONGOING.splice(di,1);try{snapDelAll()}catch(e){}loadOngoing(true);if(HOSTED)render()}}
@@ -1417,6 +1424,44 @@ window.addEventListener('pagehide',flushForm);
 var PLANS={},PLAN_EDIT=[];
 function canConduct(){return !HOSTED||!S.me||S.me.role==='admin'||S.me.role==='resp'}
 function canEditPlan(u){return HOSTED&&(PLAN_EDIT==='all'||(PLAN_EDIT&&PLAN_EDIT.indexOf&&PLAN_EDIT.indexOf(u)>-1))}
+var PEF={};
+function planEvid(x){
+  var P=x.PL||{},an=P.anexos||[],ed=canEditPlan(x.unit),k=x.PK;
+  if(!HOSTED||(!an.length&&!ed))return '';
+  var open=S.peo&&S.peo[k],busy=S.pab===k;
+  var head='<h3>Evidência de conclusão <span class="note">(opcional)</span></h3><p class="note" style="margin:0">'+(an.length?an.length+' anexo'+(an.length>1?'s':'')+' · prova do que foi feito.':'Anexe foto ou PDF que comprove a ação realizada (JPG, PNG ou PDF).')+'</p>';
+  var btns='<div class="evid">'+(an.length?'<button type="button" class="evb" data-act="plev" data-k="'+esc(k)+'" aria-expanded="'+!!open+'">'+ic('cam')+' '+(open?'Ocultar':'Ver')+' evidência'+(an.length>1?'s':'')+'</button>':'')+
+    (ed&&an.length<6?'<label class="evb" aria-disabled="'+busy+'"><input type="file" accept="image/*,application/pdf" data-pa="file" data-k="'+esc(k)+'"'+(busy?' disabled':'')+'>'+(busy?'Enviando…':'+ Anexar evidência')+'</label>':'')+'</div>';
+  var msg=S.pamsg&&S.pamsg.k===k?'<p class="note" role="alert" style="color:var(--bad-ink);font-weight:700;margin:6px 0 0">'+esc(S.pamsg.t)+'</p>':'';
+  var body='';
+  if(open){
+    body='<div class="evid">'+an.map(function(a,i){var e=PEF[a.id],sel=S.pebig===a.id;
+      var inner=e&&e.st==='ok'&&e.tipo==='imagem'?'<img alt="Evidência '+(i+1)+'" src="data:'+e.mime+';base64,'+e.b64+'">':e&&e.st==='err'?'<span aria-hidden="true">!</span>':e&&e.st==='ok'?'<span class="note">PDF</span>':'<span class="note">…</span>';
+      return '<button type="button" class="evt" data-act="plbig" data-id="'+esc(a.id)+'" aria-pressed="'+sel+'" aria-label="Ampliar evidência '+(i+1)+'">'+inner+'</button>'}).join('')+
+      an.map(function(a){if(S.pebig!==a.id)return '';var e=PEF[a.id];
+        var meta='<div class="note">'+esc(a.por||'')+' · '+esc(a.em||'')+' <button type="button" class="evb" data-act="plbig" data-id="'+esc(a.id)+'">Fechar</button>'+(ed?(S.pdel===a.id?' <button type="button" class="evb" data-act="pldelok" data-k="'+esc(k)+'" data-id="'+esc(a.id)+'">Confirmar retirada</button>':' <button type="button" class="evb" data-act="pldel" data-id="'+esc(a.id)+'">Retirar</button>'):'')+'</div>';
+        if(!e||e.st==='load')return '<div class="evbig"><span class="note" role="status">Carregando…</span></div>';
+        if(e.st==='err')return '<div class="evbig"><span class="note" role="alert">'+esc(e.msg||'Não foi possível abrir.')+'</span>'+meta+'</div>';
+        return '<div class="evbig">'+(e.tipo==='imagem'?'<img alt="'+esc(a.nome)+'" src="data:'+e.mime+';base64,'+e.b64+'">':'<iframe title="'+esc(a.nome)+'" src="data:application/pdf;base64,'+e.b64+'"></iframe>')+meta+'</div>'}).join('')+'</div>'}
+  return '<div class="plev">'+head+btns+msg+body+'</div>'
+}
+function planAsk(x){(x.PL&&x.PL.anexos||[]).forEach(function(a){if(!PEF[a.id]||PEF[a.id].st==='err'){PEF[a.id]={st:'load'};rpc('plan_evid_get',{unit:x.unit,mod:x.mod,gn:x.gn,name:x.name,id:a.id})}})}
+function planByKey(k){return plansFor(scopedVisits()).filter(function(p){return p.PK===k})[0]}
+document.addEventListener('click',function(e){
+  var a=e.target.closest('[data-act=plev],[data-act=plbig],[data-act=pldel],[data-act=pldelok]');if(!a||!HOSTED)return;
+  var act=a.dataset.act,y=window.scrollY;
+  if(act==='plev'){var x=planByKey(a.dataset.k);if(!x)return;S.peo=S.peo||{};var wp=S.peo[x.PK];S.peo={};S.peo[x.PK]=!wp;S.pebig=null;if(S.peo[x.PK])planAsk(x)}
+  else if(act==='plbig'){S.pebig=(S.pebig===a.dataset.id?null:a.dataset.id);S.pdel=null}
+  else if(act==='pldel'){S.pdel=a.dataset.id}
+  else if(act==='pldelok'){var x2=planByKey(a.dataset.k);if(!x2)return;S.pdel=null;S.pab=x2.PK;rpc('plan_unattach',{unit:x2.unit,mod:x2.mod,gn:x2.gn,name:x2.name,id:a.dataset.id})}
+  render();window.scrollTo(0,y)
+},true);
+document.addEventListener('change',function(e){
+  var i=e.target;if(!i||!i.matches||!i.matches('input[data-pa=file]')||!HOSTED)return;
+  var x=planByKey(i.dataset.k),f=i.files&&i.files[0];i.value='';if(!x||!f||S.pab)return;
+  S.pamsg=null;S.pab=x.PK;render();
+  vtShrink(f).then(function(r){rpc('plan_attach',{unit:x.unit,mod:x.mod,gn:x.gn,name:x.name,nome:r.nome,b64:r.b64})},function(m){S.pab=null;S.pamsg={k:x.PK,t:f.name+': '+m};render()})
+});
 function planEdit(x){
   if(!HOSTED||!canEditPlan(x.unit))return '';
   var by=x.PL&&x.PL.by?'<span class="note">Última edição: '+esc(x.PL.by)+' em '+esc(x.PL.at)+'</span>':'';
@@ -1717,7 +1762,7 @@ function vtPick(num,cam){
 function vtB64(blob){return new Promise(function(res,rej){var fr=new FileReader();fr.onload=function(){res(String(fr.result).split(',')[1])};fr.onerror=function(){rej('Não foi possível ler o arquivo.')};fr.readAsDataURL(blob)})}
 function vtShrink(file){
   var isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name);
-  if(isPdf){if(file.size>S.fm.cfg.max_pdf_mb*1048576)return Promise.reject('O PDF passa de '+S.fm.cfg.max_pdf_mb+' MB. Envie um arquivo menor.');return vtB64(file).then(function(b){return {nome:file.name,b64:b}})}
+  if(isPdf){var mxp=(S.fm&&S.fm.cfg&&S.fm.cfg.max_pdf_mb)||10;if(file.size>mxp*1048576)return Promise.reject('O PDF passa de '+mxp+' MB. Envie um arquivo menor.');return vtB64(file).then(function(b){return {nome:file.name,b64:b}})}
   if(file.size>20*1048576)return Promise.reject('A imagem passa de 20 MB. Envie uma foto menor.');
   return createImageBitmap(file,{imageOrientation:'from-image'}).then(function(bmp){var s=Math.min(1,1600/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*s));c.height=Math.max(1,Math.round(bmp.height*s));c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
     return new Promise(function(res){c.toBlob(res,'image/jpeg',.8)})}).then(function(b){return vtB64(b)}).then(function(b){return {nome:(file.name||'foto').replace(/\.[^.]+$/,'')+'.jpg',b64:b}},function(){return Promise.reject('Não foi possível ler a imagem. Tente outra foto.')})}

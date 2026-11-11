@@ -211,6 +211,19 @@ def run():
                 store.save()
                 ss["ver"] += 1
                 reply = {"kind": act, "ok": True, "mail": alvo, "msg": "Senha removida."}
+        elif act in ("plan_attach", "plan_unattach", "plan_evid_get"):
+            from core import plans, evidencias
+            try:
+                if act == "plan_attach":
+                    reply = {"kind": act, "ok": True, **plans.anexar(store, mail, pl)}
+                elif act == "plan_unattach":
+                    reply = {"kind": act, "ok": True, **plans.remover_anexo(store, mail, pl)}
+                else:
+                    reply = plans.obter_anexo(store, mail, pl)
+            except (api.Rejected, evidencias.Negado) as e:
+                reply = {"kind": act, "ok": False, "msg": str(e), "fid": str(pl.get("id") or "")}
+            except Exception as e:
+                reply = {"kind": act, "ok": False, "msg": "Não foi possível concluir: " + str(e)[:100], "fid": str(pl.get("id") or "")}
         elif act == "plan_save":
             from core import plans
             try:

@@ -152,6 +152,38 @@ def _baixar_google(fid):
     return r.content
 
 
+def _local_dir(form):
+    import importlib
+    from core.forms_api import PKG
+    return importlib.import_module("forms.%s.evidencias" % PKG[form]).LOCAL_EVID_DIR
+
+
+def _preparar(tipo, dados):
+    """(mime, bytes) prontos para o painel: PDF até MAX_PDF; imagem reduzida a MAX_PX em JPEG."""
+    if tipo == "pdf":
+        if len(dados) > MAX_PDF:
+            raise Negado("PDF grande demais para exibir aqui (%.1f MB). Peça o arquivo ao responsável pela visita." % (len(dados) / 1048576))
+        return "application/pdf", dados
+    if len(dados) > MAX_IMG_ORIG:
+        raise Negado("Imagem grande demais para exibir aqui.")
+    try:
+        return "image/jpeg", _reduzir(dados)
+    except Exception:
+        raise Negado("Não foi possível abrir este arquivo como imagem.")
+
+
+def baixar(fid, pasta_local=None):
+    """Bytes do arquivo: do Drive (conta de serviço) ou, no modo de teste local, da pasta de evidências locais."""
+    if fid.startswith("local:"):
+        pasta = os.path.realpath(pasta_local or "")
+        p = os.path.realpath(os.path.join(pasta, fid[6:]))
+        if not pasta_local or not p.startswith(pasta + os.sep) or not os.path.exists(p):
+            raise Negado("Arquivo local não encontrado.")
+        with open(p, "rb") as f:
+            return f.read()
+    return _baixar_google(fid)
+
+
 def obter(store, mail, form, codigo, fid):
     """Entrega um arquivo da visita (imagem reduzida, ou PDF) em base64. Só aceita ids listados na própria visita."""
     lst = listar(store, mail, form, codigo)
@@ -162,27 +194,10 @@ def obter(store, mail, form, codigo, fid):
                 achado = e
     if not achado:
         raise Negado("Arquivo não pertence a esta visita.")
+    pasta_local = None
     if fid.startswith("local:"):
-        import importlib
-        from core.forms_api import PKG
-        pasta = os.path.join(importlib.import_module("forms.%s.evidencias" % PKG[form]).LOCAL_EVID_DIR, lst["codigo"])
-        pasta = os.path.realpath(pasta)
-        p = os.path.realpath(os.path.join(pasta, fid[6:]))
-        if not p.startswith(pasta + os.sep) or not os.path.exists(p):
-            raise Negado("Arquivo local não encontrado.")
-        dados = open(p, "rb").read()
-    else:
-        dados = _baixar_google(fid)
-    if achado["tipo"] == "pdf":
-        if len(dados) > MAX_PDF:
-            raise Negado("PDF grande demais para exibir aqui (%.1f MB). Peça o arquivo ao responsável pela visita." % (len(dados) / 1048576))
-        mime, out = "application/pdf", dados
-    else:
-        if len(dados) > MAX_IMG_ORIG:
-            raise Negado("Imagem grande demais para exibir aqui.")
-        try:
-            mime, out = "image/jpeg", _reduzir(dados)
-        except Exception:
-            raise Negado("Não foi possível abrir este arquivo como imagem.")
+        pasta_local = os.path.join(_local_dir(form), lst["codigo"])
+    dados = baixar(fid, pasta_local)
+    mime, out = _preparar(achado["tipo"], dados)
     return {"kind": "evid_get", "ok": True, "fid": fid, "nome": achado["nome"], "tipo": achado["tipo"], "mime": mime,
             "b64": base64.b64encode(out).decode("ascii")}

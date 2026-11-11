@@ -210,3 +210,49 @@ def test_visitas_em_aberto_so_o_responsavel_conduz(store):
         assert not perms.can_conduct_visit(store, store.user_by_mail(mail))
     assert perms.can_conduct_visit(store, store.user_by_mail("r@x.com"))
     assert perms.can_conduct_visit(store, store.user_by_mail(ADM))
+
+
+def test_plano_evidencia_de_conclusao(store, monkeypatch):
+    """Anexo opcional de prova no plano de ação: permissão por unidade, preservado ao salvar texto, retirável, limite."""
+    import base64, io
+    from PIL import Image
+    from core import plans, evidencias
+    _user(store, "g@x.com", "gestor", "sel", ["juina"])
+    _user(store, "o@x.com", "gestor", "sel", ["aripuana"])
+
+    class _Ev:
+        class EvidenciaErro(Exception):
+            pass
+        n = 0
+
+        @classmethod
+        def guardar_evidencia(cls, sessao, pasta, codigo, num, nome, dados):
+            cls.n += 1
+            return {"nome": "acao_%d_%s" % (cls.n, nome), "tipo": "imagem", "tamanho_kb": 1.0, "link": "http://x", "id_arquivo": "FILEID%02d" % cls.n}
+    monkeypatch.setattr(plans, "_destino", lambda s, m, mod: (_Ev, None, "pasta"))
+    b = io.BytesIO(); Image.new("RGB", (40, 30), (9, 9, 9)).save(b, "PNG")
+    b64 = base64.b64encode(b.getvalue()).decode()
+    pl = {"unit": "Juína", "mod": "aud", "gn": "G", "name": "Item", "nome": "prova.png", "b64": b64}
+    r = plans.anexar(store, "g@x.com", pl)
+    assert r["plan"]["anexos"][0]["id"] == "FILEID01" and r["plan"]["status"] == "Aberto" and r["plan"]["anexos"][0]["por"] == "g@x.com"
+    with pytest.raises(api.Rejected):
+        plans.anexar(store, "o@x.com", pl)                         # gestor de outra unidade não anexa
+    with pytest.raises(api.Rejected):
+        plans.anexar(store, "g@x.com", {**pl, "b64": "!!!"})        # base64 inválido
+    base = {"unit": "Juína", "mod": "aud", "gn": "G", "name": "Item", "status": "Concluído", "prazo": "2026-12-01", "acao": "feito", "resp": "Maria"}
+    assert plans.save(store, "g@x.com", base)["plan"]["anexos"][0]["id"] == "FILEID01"   # salvar o texto não apaga a prova
+    monkeypatch.setattr(evidencias, "baixar", lambda fid, pasta=None: b.getvalue())
+    out = plans.obter_anexo(store, "g@x.com", {**pl, "id": "FILEID01"})
+    assert out["mime"] == "image/jpeg" and out["fid"] == "FILEID01"
+    with pytest.raises(evidencias.Negado):
+        plans.obter_anexo(store, "o@x.com", {**pl, "id": "FILEID01"})   # quem não enxerga a unidade não vê
+    with pytest.raises(evidencias.Negado):
+        plans.obter_anexo(store, "g@x.com", {**pl, "id": "OUTROARQUIVO"})  # id que não é da ação
+    for i in range(plans.MAX_ANEXOS - 1):
+        plans.anexar(store, "g@x.com", pl)
+    with pytest.raises(api.Rejected):
+        plans.anexar(store, "g@x.com", pl)                          # limite por ação
+    with pytest.raises(api.Rejected):
+        plans.remover_anexo(store, "o@x.com", {**pl, "id": "FILEID01"})
+    left = plans.remover_anexo(store, "g@x.com", {**pl, "id": "FILEID01"})["plan"]["anexos"]
+    assert len(left) == plans.MAX_ANEXOS - 1 and all(a["id"] != "FILEID01" for a in left)
