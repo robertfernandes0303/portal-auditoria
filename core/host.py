@@ -148,6 +148,17 @@ def run():
                 reply = {"kind": "ongoing_load", "ok": True, "ongoing": _on, "ongoing_err": bool(_err), "prof": list(andamento.PROF)}
             except Exception as e:
                 reply = {"kind": "ongoing_load", "ok": False, "msg": str(e)[:160]}
+        elif act in ("evid_list", "evid_get"):
+            from core import evidencias
+            try:
+                if act == "evid_list":
+                    reply = evidencias.listar(store, mail, pl.get("form"), pl.get("codigo"))
+                else:
+                    reply = evidencias.obter(store, mail, pl.get("form"), pl.get("codigo"), str(pl.get("id") or ""))
+            except evidencias.Negado as e:
+                reply = {"kind": act, "ok": False, "msg": str(e), "fid": str(pl.get("id") or ""), "form": str(pl.get("form") or ""), "codigo": str(pl.get("codigo") or "")}
+            except Exception as e:
+                reply = {"kind": act, "ok": False, "msg": "Não foi possível carregar a evidência: " + str(e)[:100], "fid": str(pl.get("id") or ""), "form": str(pl.get("form") or ""), "codigo": str(pl.get("codigo") or "")}
         elif act == "visit_discard":
             from core import descarte
             try:

@@ -227,6 +227,15 @@ a.who:hover{background:rgba(255,255,255,.14)}
 .evid{display:flex;gap:6px}
 .evid span{width:38px;height:38px;border-radius:10px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted)}
 .evid svg{width:17px;height:17px}
+.evid{flex-wrap:wrap;align-items:center}
+button.evb{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--soft);color:inherit;border-radius:10px;padding:8px 12px;min-height:40px;font:inherit;font-size:13px;cursor:pointer}
+.evid button.evt{width:60px;height:60px;padding:0;border-radius:10px;border:2px solid var(--line);background:var(--soft);overflow:hidden;cursor:pointer;display:grid;place-items:center;color:var(--muted)}
+.evid button.evt[aria-pressed=true]{border-color:var(--cyan)}
+.evid button.evt img{width:100%;height:100%;object-fit:cover;display:block}
+.evbig{flex-basis:100%;margin-top:6px}
+.evbig img{width:100%;max-width:560px;height:auto;border-radius:10px;border:1px solid var(--line);display:block}
+.evbig .note{margin-top:4px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.evbig iframe{width:100%;height:420px;border:1px solid var(--line);border-radius:10px}
 .note{font-size:12px;color:var(--muted)}
 .trend{width:100%;height:auto;display:block}
 .trend text{fill:var(--muted);font-family:var(--font);font-size:11px}
@@ -945,6 +954,34 @@ function viewVisitas(){
   return '<div class="head"><div><h1>Visitas realizadas</h1><p>Toque em uma visita para ver itens não conformes, evidências e plano de ação.</p></div>'+searchBox('Buscar unidade ou formulário')+'</div>'+seg+'<section class="card"><div style="overflow-x:auto"><table class="tbl rt cmpt"><thead><tr><th>Unidade</th><th>Data</th><th>Módulo</th><th>Conformidade</th><th>Situação</th><th>Não conformes</th></tr></thead><tbody>'+(rows||'<tr><td colspan="6">Nenhuma visita encontrada.</td></tr>')+'</tbody></table></div></section>'
 }
 
+var EVL={},EVF={};
+function evKey(v){return v.mod+'|'+v.id}
+function evAsk(v,n){
+  var k=evKey(v),L=EVL[k];
+  if(!L||L.st==='err'){EVL[k]={st:'load'};rpc('evid_list',{form:v.mod,codigo:v.id});return}
+  if(L.st!=='ok')return;
+  (L.itens[String(n)]||[]).forEach(function(f){if(!EVF[f.id]||EVF[f.id].st==='err'){EVF[f.id]={st:'load'};rpc('evid_get',{form:v.mod,codigo:v.id,id:f.id})}})
+}
+function evCell(v,it){
+  if(!it.ev)return '<div class="evid"><span class="note">Sem foto</span></div>';
+  var k=evKey(v),L=EVL[k],open=S.evo&&S.evo[k+'|'+it.n];
+  var btn='<button type="button" class="evb" data-act="evshow" data-m="'+v.mod+'" data-c="'+esc(v.id)+'" data-n="'+it.n+'" aria-expanded="'+!!open+'">'+ic('cam')+' '+(open?'Ocultar':'Ver')+' '+(it.ev>1?it.ev+' fotos':'foto')+'</button>';
+  if(!open)return '<div class="evid">'+btn+'</div>';
+  if(!L||L.st==='load')return '<div class="evid">'+btn+'<span class="note" role="status">Carregando…</span></div>';
+  if(L.st!=='ok')return '<div class="evid">'+btn+'<span class="note" role="alert">'+esc(L.msg||'Não foi possível carregar.')+'</span></div>';
+  var fs=L.itens[String(it.n)]||[];
+  if(!fs.length)return '<div class="evid">'+btn+'<span class="note">Arquivo não localizado na planilha de evidências.</span></div>';
+  var th=fs.map(function(f,i){var e=EVF[f.id],sel=S.evbig===f.id;
+    var inner=e&&e.st==='ok'&&e.tipo==='imagem'?'<img alt="Evidência '+(i+1)+' do item '+it.n+'" src="data:'+e.mime+';base64,'+e.b64+'">':e&&e.st==='err'?'<span aria-hidden="true">!</span>':e&&e.st==='ok'?'<span class="note">PDF</span>':'<span class="note">…</span>';
+    return '<button type="button" class="evt" data-act="evbig" data-id="'+f.id+'" aria-pressed="'+sel+'" aria-label="Ampliar evidência '+(i+1)+' do item '+it.n+'">'+inner+'</button>'}).join('');
+  var big='';
+  fs.forEach(function(f){if(S.evbig!==f.id)return;var e=EVF[f.id];
+    if(!e||e.st==='load')big='<div class="evbig"><span class="note" role="status">Carregando…</span></div>';
+    else if(e.st==='err')big='<div class="evbig"><span class="note" role="alert">'+esc(e.msg||'Não foi possível abrir.')+'</span></div>';
+    else if(e.tipo==='imagem')big='<div class="evbig"><img alt="'+esc(f.nome)+'" src="data:'+e.mime+';base64,'+e.b64+'"><div class="note">'+esc(f.nome)+' <button type="button" class="evb" data-act="evbig" data-id="'+f.id+'">Fechar</button></div></div>';
+    else big='<div class="evbig"><iframe title="'+esc(f.nome)+'" src="data:application/pdf;base64,'+e.b64+'"></iframe><div class="note">'+esc(f.nome)+' <button type="button" class="evb" data-act="evbig" data-id="'+f.id+'">Fechar</button></div></div>'});
+  return '<div class="evid">'+btn+th+big+'</div>'
+}
 function viewVisita(id){
   var v=VISITS.filter(function(x){return x.id===id&&inScope(x.unit)})[0];
   if(!v)return '<div class="empty">Visita não encontrada para o seu perfil.</div>';
@@ -954,12 +991,12 @@ function viewVisita(id){
   var groups=MODS[v.mod].groups.map(function(g,gi){return barRow(g[0],'',score(v.items.filter(function(i){return i.g===gi})))}).join('');
   var rows=ncs.map(function(it){
     var pl=plans.filter(function(x){return x.unit===v.unit&&x.mod===v.mod&&x.name===it.name})[0];
-    var ev='<div class="evid">'+(it.ev?Array.apply(null,Array(Math.min(it.ev,4))).map(function(){return '<span title="Foto de evidência">'+ic('cam')+'</span>'}).join(''):'<span class="note">Sem foto</span>')+'</div>';
+    var ev=evCell(v,it);
     return '<tr><td data-l="Item"><b>'+esc(it.name)+'</b><span class="sm">'+esc(it.gn)+'</span></td><td data-l="Observação" style="max-width:260px">'+(it.obs?esc(it.obs):'<span class="note">Sem observação registrada</span>')+'</td><td data-l="Evidências">'+ev+'</td><td data-l="Responsável">'+(pl?pl.resp.c+' · '+pl.resp.n:'A definir')+'</td><td data-l="Prazo" class="num">'+(pl?fdate(pl.prazo):'–')+'</td><td data-l="Status">'+(pl?stPill(pl.status):'<span class="pill na plain">Visita anterior</span>')+'</td></tr>'}).join('');
   return '<div class="head"><div><a href="#visitas" class="back">← Voltar às visitas</a><h1 style="margin-top:6px">'+esc(v.unit)+'</h1><p>'+MODS[v.mod].name+'</p><div class="vmeta"><span><small>Visita</small><b>'+fd(v.date)+'</b></span><span><small>Responsável</small><b>'+esc(v.resp||'–')+'</b></span><span><small>Acompanhamento</small><b>'+esc(v.acomp||'–')+'</b></span><span><small>Situação</small><span class="pill ok">Completa</span></span></div> </div><div class="acts2"><button class="btn line" data-act="report" data-id="'+v.id+'">Gerar relatório</button><a class="btn sec" href="#comparativo" data-act="cmpFrom" data-id="'+v.id+'">Comparar visitas</a></div></div>'+(S.rep===v.id?'<div class="card" style="background:var(--soft)"><b>Relatório da visita</b><p class="note" style="margin-top:4px">Esta tela já reúne os blocos do relatório (fotografia, conformidade por seção, frentes com desvios, itens sólidos e não conformidades). A exportação em HTML/PDF ainda não está disponível.</p></div>':'')+
   '<div class="grid g3 k3"><div class="card kpi '+st(p).k+'"><small>Conformidade</small><strong class="num">'+fmt(p)+'</strong><em>'+st(p).t+' · meta 85%</em></div><div class="card kpi bad"><small>Itens não conformes</small><strong class="num">'+ncs.length+'</strong><em>de '+v.items.length+' itens</em></div><div class="card kpi"><small>Itens não aplicáveis</small><strong class="num">'+v.items.filter(function(i){return i.s==='NA'}).length+'</strong><em>fora do cálculo</em></div></div>'+
   reportBlocks(v,p)+
-  (ncs.length?'<section class="card"><h2>Não conformidades e plano de ação</h2><p class="sub">Evidências em foto ficam no Drive e abrem a partir do formulário.</p><div style="overflow-x:auto">'+(ncs.length?'<table class="tbl rt cmpt"><thead><tr><th>Item</th><th>Observação</th><th>Evidências</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>':'')+'</div></section>':'')
+  (ncs.length?'<section class="card"><h2>Não conformidades e plano de ação</h2><p class="sub">Toque em “Ver foto” para abrir as evidências deste item; toque na miniatura para ampliar.</p><div style="overflow-x:auto">'+(ncs.length?'<table class="tbl rt cmpt"><thead><tr><th>Item</th><th>Observação</th><th>Evidências</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>':'')+'</div></section>':'')
 }
 function reportBlocks(v,p){
   var sc=secoes(v.items), ap=sc.filter(function(x){return x.ap>0}), tot={c:0,nc:0,na:0};
@@ -1102,7 +1139,7 @@ document.addEventListener('click',function(e){
     else if(act==='ppdelcancel'){S.ppconf=null;render()}
     else if(act==='ppdel'){var dk=S.pp.id;delete ROLES[dk];delete PERFIL[dk];persist();S.pp={id:null,mode:null,draft:null};S.ppconf=null;S.pemsg='Perfil excluído (simulação).';render()}
     else if(act==='nvmod'){S.nv.mod=a.dataset.v;render()}
-    else if(act==='logout'){if(HOSTED){tokDel();snapDelAll();snapPill('');flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
+    else if(act==='logout'){EVL={};EVF={};S.evo={};S.evbig=null;if(HOSTED){tokDel();snapDelAll();snapPill('');flushForm();S.fm=null;rpc('logout')}else{S.user=null;S.lg='login';location.hash='';render()}}
     else if(act==='ongretry'){S.ongErr=false;S.ongLoaded=false;DATA_RETRY=0;loadOngoing(true);render()}
     else if(act==='pexp'){S.pexp[a.dataset.u]=!S.pexp[a.dataset.u];var y6=window.scrollY;render();window.scrollTo(0,y6)}
     else if(act==='lgreset'){e.preventDefault();S.lg='reset';render()}
@@ -1110,6 +1147,8 @@ document.addEventListener('click',function(e){
     else if(act==='sum'){S.sum=(S.sum===a.dataset.v?null:a.dataset.v);var y5=window.scrollY;render();window.scrollTo(0,y5)}
     else if(act==='noop')e.preventDefault();
     else if(act==='hflt'){S.h.flt=a.dataset.v;var y4=window.scrollY;render();window.scrollTo(0,y4)}
+    else if(act==='evshow'){var vv=VISITS.filter(function(x){return x.id===a.dataset.c&&x.mod===a.dataset.m})[0];if(vv){S.evo=S.evo||{};var ek=evKey(vv)+'|'+a.dataset.n;S.evo[ek]=!S.evo[ek];if(S.evo[ek])evAsk(vv,a.dataset.n);var y9=window.scrollY;render();window.scrollTo(0,y9)}}
+    else if(act==='evbig'){S.evbig=(S.evbig===a.dataset.id?null:a.dataset.id);var y10=window.scrollY;render();window.scrollTo(0,y10)}
     else if(act==='report'){S.rep=a.dataset.id;var y3=window.scrollY;render();window.scrollTo(0,y3)}
     else if(act==='vmod'){S.vm=a.dataset.v;var y8=window.scrollY;render();window.scrollTo(0,y8)}
     else if(act==='cedit'){S.cf=a.dataset.f;S.q=a.dataset.u==='__consolidado__'?'':a.dataset.u;render();var ce=document.getElementById('conn-edit');if(ce)ce.scrollIntoView({block:'start'})}
@@ -1257,6 +1296,9 @@ function onRender(args){
     if(r.kind==='login'||r.kind==='dev_login'||r.kind==='pw_login'){S.lgerr=r.ok?'':(r.msg||'Não foi possível entrar.')}
     if(r.kind==='save'){S.ctesting=false;if(r.ok){if(S.cdirty!==undefined)S.cdirty=false;S.cmsg=r.msg||'';S.cmsgbad=false}else{S.pemsg=null;S.cmsg=r.msg||'Não foi possível salvar.';S.cmsgbad=true;S.pe={id:null,draft:null};S.pp={id:null,mode:null,draft:null}}}
     if(r.kind==='data_load'){applyData(r);if(r.ok){loadOngoing(!!window.__fresh);setTimeout(function(){loadOngoing(false)},7000)}if(r.ok&&r.stale&&(S.stRe||0)<2){S.stRe=(S.stRe||0)+1;setTimeout(function(){loadData(false)},6000)}else if(r.ok)S.stRe=0}
+    if(r.kind==='evid_list'){var lk=(r.form||'')+'|'+(r.codigo||'');EVL[lk]=r.ok?{st:'ok',itens:r.itens||{}}:{st:'err',msg:r.msg};
+      if(r.ok){VISITS.forEach(function(v){if(evKey(v)===lk&&S.evo)Object.keys(S.evo).forEach(function(q){if(S.evo[q]&&q.indexOf(lk+'|')===0)evAsk(v,q.slice(lk.length+1))})})}renderSoft()}
+    if(r.kind==='evid_get'){EVF[r.fid]=r.ok?{st:'ok',tipo:r.tipo,mime:r.mime,b64:r.b64}:{st:'err',msg:r.msg};renderSoft()}
     if(r.kind==='ongoing_load')applyOngoing(r);
     if(r.kind==='visit_discard'){window.__disc=r;if(r.ok){for(var di=ONGOING.length-1;di>=0;di--)if(ONGOING[di].codigo===r.codigo&&ONGOING[di].mod===r.form)ONGOING.splice(di,1);try{snapDelAll()}catch(e){}loadOngoing(true);if(HOSTED)render()}}
     if(r.kind==='set_password'||r.kind==='remove_password'){if(r.ok){var mm=String(r.mail||'').toLowerCase(),ix=PWSET.indexOf(mm);if(r.kind==='set_password'){if(ix<0)PWSET.push(mm);S.pwmsg='Senha temporária definida'+(S.pwlast?': '+S.pwlast+'. Informe à pessoa: ela precisará criar a própria senha no primeiro acesso.':'.')}else{if(ix>-1)PWSET.splice(ix,1);S.pwmsg='Senha removida.'}}else S.pwmsg=r.msg||'Não foi possível.';S.pwlast=''}
